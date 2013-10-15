@@ -1,0 +1,17 @@
+[global]
+ua=DCoinCoin/1.99
+refresh=30
+
+[see]
+name=see
+post_url=http://tout.essaye.sauf.ca/tribune/post
+post_format=message=%s
+xml_url=tout.essaye.sauf.ca/tribune.xml
+
+[dlfp]
+name=dlfp
+aliases=beyrouth,dapasite
+post_url=http://linuxfr.org/board
+post_format=board[message]=%s
+xml_url=http://linuxfr.org/board/index.xml
+cookie=linuxfr.org_session=plop
