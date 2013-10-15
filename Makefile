@@ -1,5 +1,5 @@
 DC=rdmd
-DCFLAGS=--build-only -L-lncursesw
+DCFLAGS=--build-only -L-lpanel -L-lncursesw
 
 all: dcoincoin-cli
 

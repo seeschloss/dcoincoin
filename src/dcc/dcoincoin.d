@@ -14,6 +14,7 @@ private import dcc.tribune;
 private import dcc.uput;
 
 private import deimos.ncurses.ncurses;
+private import deimos.ncurses.panel;
 
 extern (C) { char* setlocale(int category, const char* locale); }
 
@@ -61,6 +62,10 @@ class NCUI {
 
 	WINDOW* posts_window;
 	WINDOW* input_window;
+	WINDOW* preview_window;
+
+	PANEL* main_panel;
+	PANEL* preview_panel;
 
 	Stop current_stop;
 	Stop[] stops;
@@ -95,7 +100,16 @@ class NCUI {
 		int input_height = 2;
 
 		this.posts_window = newwin(LINES - input_height, 0, 0, 0);
-		this.input_window = newwin(2, COLS, LINES - input_height, 0);
+		this.input_window = newwin(2, 0, LINES - input_height, 0);
+
+		this.preview_window = newwin(4, 0, 0, 0);
+
+		this.main_panel = new_panel(posts_window);
+		this.preview_panel = new_panel(preview_window);
+
+		top_panel(this.main_panel);
+		update_panels();
+		doupdate();
 
 		mvwhline(this.input_window, 0, 0, 0, COLS);
 
@@ -121,6 +135,23 @@ class NCUI {
 			mvwprintw(this.posts_window, line, 0, "#");
 			wattroff(this.posts_window, post.tribune.color(true));
 			wrefresh(this.posts_window);
+
+			top_panel(this.preview_panel);
+			wclear(this.preview_window);
+			scrollok(this.preview_window, true);
+
+			wresize(this.preview_window, 3, COLS);
+			int height = append_post(this.preview_window, post, false, 0);
+			wresize(this.preview_window, height, COLS);
+			wclear(this.preview_window);
+			append_post(this.preview_window, post, false, 0);
+			wresize(this.preview_window, height + 1, COLS);
+			mvwhline(this.preview_window, height, 0, 0, COLS);
+			wrefresh(preview_window);
+			update_panels();
+			doupdate();
+
+			this.set_status(post.post.clock);
 		}
 	}
 
@@ -131,6 +162,11 @@ class NCUI {
 			mvwprintw(this.posts_window, line, 0, "*");
 			wattroff(this.posts_window, post.tribune.color());
 			wrefresh(this.posts_window);
+
+			top_panel(this.main_panel);
+			update_panels();
+			doupdate();
+			this.set_status("");
 		}
 	}
 
@@ -231,7 +267,7 @@ class NCUI {
 
 	bool prev_stop() {
 		Stop previous_stop = this.current_stop;
-		if (this.current_stop is Stop.init) {
+		if (this.current_stop is Stop.init && this.stops.length) {
 			this.current_stop = this.stops[$ - 1];
 		} else foreach_reverse (Stop stop; this.stops) {
 			if (stop.offset > this.offset - this.posts_window.maxy) {
@@ -272,40 +308,39 @@ class NCUI {
 		return this.current_stop.offset != previous_stop.offset || this.current_stop.start != previous_stop.start;
 	}
 
-	void display_post(NCPost post) {
-		wscrl(this.posts_window, 1);
-		this.offset++;
+	int append_post(WINDOW* window, NCPost post, bool add_stops, int offset) {
+		offset++;
 
-		post.offset = this.offset;
+		wscrl(window, 1);
 
 		int x = 0;
 		string clock = post.post.clock;
 		string user = post.post.login;
 
-		wattron(this.posts_window, post.tribune.color());
-		mvwprintw(this.posts_window, this.posts_window.maxy, x, "*");
+		wattron(window, post.tribune.color());
+		mvwprintw(window, window.maxy, x, "*");
 		x += 1;
-		wattroff(this.posts_window, post.tribune.color());
-		mvwprintw(this.posts_window, this.posts_window.maxy, x, "%.*s", clock);
+		wattroff(window, post.tribune.color());
+		mvwprintw(window, window.maxy, x, "%.*s", clock);
 		int clock_len = cast(int)std.utf.count(clock);
 		ulong current_attributes;
 		short pair;
 		int opts;
-		wattr_get(this.posts_window, &current_attributes, &pair, cast(void*)&opts);
+		wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
 
-		Stop post_stop = Stop(this.offset, x, clock_len, post, current_attributes, pair);
+		Stop post_stop = Stop(offset, x, clock_len, post, current_attributes, pair);
 		x += clock_len;
 
-		mvwprintw(this.posts_window, this.posts_window.maxy, x, " ");
+		mvwprintw(window, window.maxy, x, " ");
 		x += 1;
 
-		wattron(this.posts_window, A_BOLD);
-		mvwprintw(this.posts_window, this.posts_window.maxy, x, "%.*s", user);
-		wattroff(this.posts_window, A_BOLD);
+		wattron(window, A_BOLD);
+		mvwprintw(window, window.maxy, x, "%.*s", user);
+		wattroff(window, A_BOLD);
 
 		x += std.utf.count(user);
 
-		mvwprintw(this.posts_window, this.posts_window.maxy, x, "> ");
+		mvwprintw(window, window.maxy, x, "> ");
 		x += 2;
 
 		string[] tokens = post.tokenize();
@@ -324,74 +359,82 @@ class NCUI {
 				x = 2;
 				sub = sub.stripLeft();
 				length = sub.count;
-				wscrl(this.posts_window, 1);
-				this.offset++;
+				wscrl(window, 1);
+				offset++;
 			}
 
 			bool is_clock = false;
 			auto clock_regex = regex(`((([01]?[0-9])|(2[0-3])):([0-5][0-9])(:([0-5][0-9]))?([:\^][0-9]|¹|²|³)?)`);
 			if (sub.strip().match(clock_regex)) {
-				wattr_get(this.posts_window, &current_attributes, &pair, cast(void*)&opts);
+				wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
 				if (!(current_attributes & A_BOLD)) {
-					wattron(this.posts_window, A_BOLD);
+					wattron(window, A_BOLD);
 					is_clock = true;
 				}
 
 				has_clocks = true;
 
-				wattr_get(this.posts_window, &current_attributes, &pair, cast(void*)&opts);
+				wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
 
-				this.stops ~= Stop(this.offset, x, cast(int)sub.count, post, current_attributes, pair, post.tribune.find_referenced_post(sub.strip()));
+				if (add_stops) {
+					this.stops ~= Stop(offset, x, cast(int)sub.count, post, current_attributes, pair, post.tribune.find_referenced_post(sub.strip()));
+				}
 			}
 
 			switch (sub.strip()) {
 				case "<b>":
-					wattron(this.posts_window, A_BOLD);
+					wattron(window, A_BOLD);
 					break;
 				case "</b>":
-					wattroff(this.posts_window, A_BOLD);
+					wattroff(window, A_BOLD);
 					break;
 				case "<i>":
-					wattron(this.posts_window, A_REVERSE);
+					wattron(window, A_REVERSE);
 					break;
 				case "</i>":
-					wattroff(this.posts_window, A_REVERSE);
+					wattroff(window, A_REVERSE);
 					break;
 				case "<u>":
-					wattron(this.posts_window, A_UNDERLINE);
+					wattron(window, A_UNDERLINE);
 					break;
 				case "</u>":
-					wattroff(this.posts_window, A_UNDERLINE);
+					wattroff(window, A_UNDERLINE);
 					break;
 				default:
-					mvwprintw(this.posts_window, this.posts_window.maxy, x, "%.*s", sub);
+					mvwprintw(window, window.maxy, x, "%.*s", sub);
 					x += length;
 					break;
 			}
 
 			if (is_clock) {
-				wattroff(this.posts_window, A_BOLD);
+				wattroff(window, A_BOLD);
 			}
 
 			if (length >= COLS) {
 				// Then the text will have wrapped several times.
-				this.offset += x/COLS;
+				offset += x/COLS;
 				x = x%COLS;
 			}
 		}
 
-		if (!has_clocks) {
+		if (!has_clocks && add_stops) {
 			this.stops ~= post_stop;
 		}
 
-		wattroff(this.posts_window, A_BOLD);
-		wattroff(this.posts_window, A_REVERSE);
-		wattroff(this.posts_window, A_UNDERLINE);
+		wattroff(window, A_BOLD);
+		wattroff(window, A_REVERSE);
+		wattroff(window, A_UNDERLINE);
 
-		wrefresh(this.posts_window);
+		wrefresh(window);
 
-		post.lines = this.offset - post.offset + 1;
+		post.lines = offset - post.offset + 1;
 
+		return offset;
+	}
+
+	void display_post(WINDOW* window, NCPost post, bool add_stops = true) {
+		post.offset = this.offset + 1;
+		this.offset = append_post(window, post, add_stops, this.offset);
 		adjust_stop();
 	}
 }
@@ -450,7 +493,7 @@ class NCTribune {
 		NCPost p = new NCPost(this, post);
 		this.posts ~= p;
 		synchronized {
-			this.ui.display_post(p);
+			this.ui.display_post(this.ui.posts_window, p);
 		}
 	};
 
