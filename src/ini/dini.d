@@ -6,14 +6,14 @@
  */
 module ini.dini;
 
-import std.stream : BufferedFile;
-import std.string : strip;
-import std.traits : isSomeString;
-import std.array  : split, indexOf, replaceInPlace, join;
-import std.algorithm : min, max, countUntil;
-import std.conv   : to;
+private import std.stream : BufferedFile;
+private import std.string : strip;
+private import std.traits : isSomeString;
+private import std.array  : split, indexOf, replaceInPlace, join;
+private import std.algorithm : min, max, countUntil;
+private import std.conv   : to;
 
-import std.stdio;
+private import std.stdio;
 
 
 /**
