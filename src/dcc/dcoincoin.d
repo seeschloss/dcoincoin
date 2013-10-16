@@ -152,26 +152,24 @@ class NCUI {
 	void highlight_post(NCPost post, NCPost origin) {
 		if (post.offset > this.offset - this.posts_window.maxy) {
 			int line = this.posts_window.maxy - (this.offset - post.offset);
-			wattron(this.posts_window, post.tribune.color() | A_BOLD);
+			wattron(this.posts_window, post.tribune.color(true) | A_BOLD);
 			mvwprintw(this.posts_window, line, 0, ">");
-			wattroff(this.posts_window, post.tribune.color() | A_BOLD);
-
-			scrollok(this.preview_window, true);
-
-			wresize(this.preview_window, post.lines, COLS);
-			wclear(this.preview_window);
-			append_post(this.preview_window, post, false, 0);
-			wresize(this.preview_window, post.lines + 1, COLS);
-			mvwhline(this.preview_window, post.lines, 0, 0, COLS);
-
-			wnoutrefresh(this.preview_window);
-			wnoutrefresh(this.posts_window);
-			top_panel(this.preview_panel);
-			update_panels();
-			doupdate();
-
-			this.set_status(post.post.clock);
+			wattroff(this.posts_window, post.tribune.color(true) | A_BOLD);
 		}
+
+		scrollok(this.preview_window, true);
+
+		wresize(this.preview_window, post.lines, COLS);
+		wclear(this.preview_window);
+		append_post(this.preview_window, post, false, 0);
+		wresize(this.preview_window, post.lines + 1, COLS);
+		mvwhline(this.preview_window, post.lines, 0, 0, COLS);
+
+		wnoutrefresh(this.preview_window);
+		wnoutrefresh(this.posts_window);
+		top_panel(this.preview_panel);
+		update_panels();
+		doupdate();
 	}
 
 	void show_info(NCPost post) {
@@ -385,10 +383,10 @@ class NCUI {
 			x += post.post.login.count;
 			wattroff(window, A_BOLD);
 		} else {
-			wattron(window, this.colors["red"]);
+			wattron(window, this.colors["rev-white"] | A_REVERSE | A_BOLD);
 			mvwprintw(window, window.maxy, x, "%.*s", post.post.short_info);
 			x += post.post.short_info.count;
-			wattroff(window, this.colors["red"]);
+			wattroff(window, this.colors["rev-white"] | A_REVERSE | A_BOLD);
 		}
 
 		mvwprintw(window, window.maxy, x, "> ");
@@ -412,6 +410,15 @@ class NCUI {
 				length = sub.count;
 				wscrl(window, 1);
 				offset++;
+
+				wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
+
+				// Add leading color marker
+				wattron(this.posts_window, post.tribune.color(true));
+				mvwprintw(this.posts_window, this.posts_window.maxy, 0, " ");
+				wattroff(this.posts_window, post.tribune.color(true));
+
+				wattrset(window, current_attributes);
 			}
 
 			bool is_clock = false;
@@ -440,10 +447,10 @@ class NCUI {
 					wattroff(window, A_BOLD);
 					break;
 				case "<i>":
-					wattron(window, A_REVERSE);
+					wattron(window, this.colors["cyan"]);
 					break;
 				case "</i>":
-					wattroff(window, A_REVERSE);
+					wattron(window, this.colors["cyan"]);
 					break;
 				case "<u>":
 					wattron(window, A_UNDERLINE);
