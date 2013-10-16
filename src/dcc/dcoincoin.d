@@ -152,9 +152,9 @@ class NCUI {
 	void highlight_post(NCPost post, NCPost origin) {
 		if (post.offset > this.offset - this.posts_window.maxy) {
 			int line = this.posts_window.maxy - (this.offset - post.offset);
-			wattron(this.posts_window, post.tribune.color(true));
-			mvwprintw(this.posts_window, line, 0, " ");
-			wattroff(this.posts_window, post.tribune.color(true));
+			wattron(this.posts_window, post.tribune.color() | A_BOLD);
+			mvwprintw(this.posts_window, line, 0, ">");
+			wattroff(this.posts_window, post.tribune.color() | A_BOLD);
 
 			scrollok(this.preview_window, true);
 
@@ -185,9 +185,9 @@ class NCUI {
 	void unhighlight_post(NCPost post) {
 		if (post.offset > this.offset - this.posts_window.maxy) {
 			int line = this.posts_window.maxy - (this.offset - post.offset);
-			wattron(this.posts_window, post.tribune.color());
-			mvwprintw(this.posts_window, line, 0, "*");
-			wattroff(this.posts_window, post.tribune.color());
+			wattron(this.posts_window, post.tribune.color(true));
+			mvwprintw(this.posts_window, line, 0, " ");
+			wattroff(this.posts_window, post.tribune.color(true));
 			wnoutrefresh(this.posts_window);
 
 			top_panel(this.main_panel);
@@ -362,10 +362,10 @@ class NCUI {
 		int x = 0;
 		string clock = post.post.clock;
 
-		wattron(window, post.tribune.color());
-		mvwprintw(window, window.maxy, x, "*");
+		wattron(window, post.tribune.color(true));
+		mvwprintw(window, window.maxy, x, " ");
 		x += 1;
-		wattroff(window, post.tribune.color());
+		wattroff(window, post.tribune.color(true));
 		mvwprintw(window, window.maxy, x, "%.*s", clock);
 		int clock_len = cast(int)std.utf.count(clock);
 		ulong current_attributes;

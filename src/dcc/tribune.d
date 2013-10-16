@@ -80,7 +80,8 @@ class Tribune {
 			post.post_id = xml.tag.attr["id"];
 			post.timestamp = xml.tag.attr["time"];
 			xml.onEndTag["info"]    = (in Element e) {
-				post.info    = replace(e.text().strip(), control_chars, " ");
+				post.info = replace(e.text().strip(), control_chars, " ");
+				post.info = this.tags_cleanup(post.info);
 			};
 			xml.onEndTag["message"] = (in Element e) {
 				post.message = replace(e.text().strip(), control_chars, " ");
@@ -92,7 +93,8 @@ class Tribune {
 				post.message = this.tags_cleanup(post.message);
 			};
 			xml.onEndTag["login"]   = (in Element e) {
-				post.login   = replace(e.text().strip(), control_chars, " ");
+				post.login = replace(e.text().strip(), control_chars, " ");
+				post.login = this.tags_cleanup(post.login);
 			};
 
 			xml.parse();
