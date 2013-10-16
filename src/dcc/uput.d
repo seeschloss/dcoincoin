@@ -41,7 +41,7 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 	int flag = 0, curspos = cast(int)whole.count, counter;
 	dchar ky;
 	bool exitflag=false;
-	string tempwhole = whole.dup;
+	string tempwhole = cast(string)whole.dup;
 	
 	keypad(w, true);
 
@@ -131,7 +131,7 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 				exitflag=true;
 				break;
 			case 27: //esc
-				whole = tempwhole.dup;
+				whole = cast(string)tempwhole.dup;
 				flag = 5;
 				exitflag = true;
 				break;
