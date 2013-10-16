@@ -131,19 +131,9 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 				exitflag=true;
 				break;
 			case 27: //esc
-				// esc twice to get out, otherwise eat the chars that don't work
-				// from home or end on the keypad
-				wget_wch(w, &ky);
-				if (ky == 27) {
-					whole = tempwhole.dup;
-					flag = 5;
-					exitflag = true;
-				} else if (ky == '[') {
-					wget_wch(w, &ky);
-					wget_wch(w, &ky);
-				} else {
-					unget_wch(ky);
-				}
+				whole = tempwhole.dup;
+				flag = 5;
+				exitflag = true;
 				break;
 			default:
 				if (ins) {

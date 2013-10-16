@@ -47,7 +47,14 @@ class Config {
 		} catch (Exception e) {
 			refresh = this.default_refresh;
 		}
-		Tribune tribune = new Tribune(name, aliases, post_url, post_format, xml_url, cookie, ua, refresh);
+		bool tags_encoded;
+		string tags_encoded_string = section.getKey("tags_encoded");
+		try {
+			tags_encoded = parse!bool(tags_encoded_string);
+		} catch (Exception e) {
+			tags_encoded = false;;
+		}
+		Tribune tribune = new Tribune(name, aliases, post_url, post_format, xml_url, cookie, ua, refresh, tags_encoded);
 
 		return tribune;
 	}

@@ -10,6 +10,7 @@ private import std.string;
 private import std.algorithm;
 private import std.uri;
 private import std.array;
+private import std.regex : regex, replace;
 
 class Tribune {
 	string name;
@@ -20,11 +21,12 @@ class Tribune {
 	string cookie;
 	string ua;
 	int refresh;
+	bool tags_encoded;
 
 	Post[string] posts;
 	void delegate (Post)[] on_new_post;
 
-	this(string name, string[] aliases, string post_url, string post_format, string xml_url, string cookie, string ua, int refresh) {
+	this(string name, string[] aliases, string post_url, string post_format, string xml_url, string cookie, string ua, int refresh, bool tags_encoded) {
 		this.name = name;
 		this.aliases = aliases;
 		this.post_url = post_url;
@@ -33,6 +35,7 @@ class Tribune {
 		this.cookie = cookie;
 		this.ua = ua;
 		this.refresh = refresh;
+		this.tags_encoded = tags_encoded;
 	}
 
 	bool fetch_posts() {
@@ -70,13 +73,27 @@ class Tribune {
 
 		Post[string] posts;
 
+		auto control_chars = std.regex.ctRegex!(`\p{Control}`, "g");
+
 		xml.onStartTag["post"] = (ElementParser xml) {
 			Post post = new Post();
 			post.post_id = xml.tag.attr["id"];
 			post.timestamp = xml.tag.attr["time"];
-			xml.onEndTag["info"]    = (in Element e) { post.info    = e.text(); };
-			xml.onEndTag["message"] = (in Element e) { post.message = e.text(); };
-			xml.onEndTag["login"]   = (in Element e) { post.login   = e.text(); };
+			xml.onEndTag["info"]    = (in Element e) {
+				post.info    = replace(e.text().strip(), control_chars, " ");
+			};
+			xml.onEndTag["message"] = (in Element e) {
+				post.message = replace(e.text().strip(), control_chars, " ");
+
+				if (this.tags_encoded) {
+					post.message = this.tags_decode(post.message);
+				}
+
+				post.message = this.tags_cleanup(post.message);
+			};
+			xml.onEndTag["login"]   = (in Element e) {
+				post.login   = replace(e.text().strip(), control_chars, " ");
+			};
 
 			xml.parse();
 
@@ -88,10 +105,23 @@ class Tribune {
 		return posts;
 	}
 
+	string tags_decode(string source) {
+		source = std.xml.decode(source);
+		return source;
+	}
+
+	string tags_cleanup(string source) {
+		source = source.replace(regex(`<clock[^>]*>`, "g"), "");
+		source = std.array.replace(source, `</clock>`, "");
+		source = std.array.replace(source, `<![CDATA[`, "");
+		source = std.array.replace(source, `]]>`, "");
+		return source;
+	}
+
 	string fetch_backend() {
 		auto connection = HTTP();
 		connection.addRequestHeader("User-Agent", this.ua);
-		char[] backend = get!HTTP(this.xml_url, connection);
+		ubyte[] backend = get!(HTTP, ubyte)(this.xml_url, connection);
 
 		if (backend.length > 0) {
 			return cast(string)backend;
@@ -109,7 +139,7 @@ class Tribune {
 			connection.addRequestHeader("Cookie", this.cookie);
 		}
 
-		string data = this.post_format.replace("%s", message.encodeComponent());
+		string data = std.array.replace(this.post_format, "%s", message.encodeComponent());
 		std.net.curl.post(this.post_url, data, connection);
 
 		return connection.statusLine.code < 300;
@@ -151,6 +181,11 @@ class Post {
 
 	string clock() {
 		return format("%02s:%02s:%02s", this.time.hour, this.time.minute, this.time.second);
+	}
+
+	string short_info() {
+		auto max = min(10, this.info.length);
+		return this.info[0 .. max];
 	}
 }
 

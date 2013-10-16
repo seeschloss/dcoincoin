@@ -25,24 +25,6 @@ void main(string[] args) {
 	ui.loop();
 }
 
-void init_colors() {
-	init_pair( 1, COLOR_WHITE,   COLOR_BLACK);
-	init_pair( 2, COLOR_RED,     COLOR_BLACK);
-	init_pair( 3, COLOR_GREEN,   COLOR_BLACK);
-	init_pair( 4, COLOR_YELLOW,  COLOR_BLACK);
-	init_pair( 5, COLOR_BLUE,    COLOR_BLACK);
-	init_pair( 6, COLOR_MAGENTA, COLOR_BLACK);
-	init_pair( 7, COLOR_CYAN,    COLOR_BLACK);
-
-	init_pair( 8, COLOR_BLACK, COLOR_WHITE  );
-	init_pair( 9, COLOR_BLACK, COLOR_RED    );
-	init_pair(10, COLOR_BLACK, COLOR_GREEN, );
-	init_pair(11, COLOR_BLACK, COLOR_YELLOW );
-	init_pair(12, COLOR_BLACK, COLOR_BLUE   );
-	init_pair(13, COLOR_BLACK, COLOR_MAGENTA);
-	init_pair(14, COLOR_BLACK, COLOR_CYAN   );
-}
-
 struct Stop {
 	int offset;
 	int start;
@@ -71,6 +53,8 @@ class NCUI {
 	Stop[] stops;
 	int offset;
 
+	ulong[string] colors;
+
 	this(string config_file) {
 		this.config_file = config_file;
 
@@ -83,8 +67,9 @@ class NCUI {
 			this.tribunes[tribune.name] = new NCTribune(this, tribune);
 			this.tribune_names ~= tribune.name;
 
+			this.tribunes[tribune.name].start_timer();
+
 			this.tribunes[tribune.name].color = n;
-			// Pick a color starting from index 1
 			n++;
 			if (n >= 7) {
 				n = 2;
@@ -95,7 +80,9 @@ class NCUI {
 	void init_ui() {
 		initscr();
 		start_color();
-		init_colors();
+		this.init_colors();
+
+		curs_set(0);
 
 		int input_height = 2;
 
@@ -119,6 +106,40 @@ class NCUI {
 		scrollok(this.posts_window, true);
 	}
 
+	void init_colors() {
+		init_pair( 1, COLOR_WHITE,   COLOR_BLACK);
+		init_pair( 2, COLOR_RED,     COLOR_BLACK);
+		init_pair( 3, COLOR_GREEN,   COLOR_BLACK);
+		init_pair( 4, COLOR_YELLOW,  COLOR_BLACK);
+		init_pair( 5, COLOR_BLUE,    COLOR_BLACK);
+		init_pair( 6, COLOR_MAGENTA, COLOR_BLACK);
+		init_pair( 7, COLOR_CYAN,    COLOR_BLACK);
+
+		init_pair( 8, COLOR_BLACK, COLOR_WHITE  );
+		init_pair( 9, COLOR_BLACK, COLOR_RED    );
+		init_pair(10, COLOR_BLACK, COLOR_GREEN, );
+		init_pair(11, COLOR_BLACK, COLOR_YELLOW );
+		init_pair(12, COLOR_BLACK, COLOR_BLUE   );
+		init_pair(13, COLOR_BLACK, COLOR_MAGENTA);
+		init_pair(14, COLOR_BLACK, COLOR_CYAN   );
+
+		this.colors["white"]   = COLOR_PAIR(1);
+		this.colors["red"]     = COLOR_PAIR(2);
+		this.colors["green"]   = COLOR_PAIR(3);
+		this.colors["yellow"]  = COLOR_PAIR(4);
+		this.colors["blue"]    = COLOR_PAIR(5);
+		this.colors["magenta"] = COLOR_PAIR(6);
+		this.colors["cyan"]    = COLOR_PAIR(7);
+
+		this.colors["rev-white"]   = COLOR_PAIR(8);
+		this.colors["rev-red"]     = COLOR_PAIR(9);
+		this.colors["rev-green"]   = COLOR_PAIR(10);
+		this.colors["rev-yellow"]  = COLOR_PAIR(11);
+		this.colors["rev-blue"]    = COLOR_PAIR(12);
+		this.colors["rev-magenta"] = COLOR_PAIR(13);
+		this.colors["rev-cyan"]    = COLOR_PAIR(14);
+	}
+
 	void set_status(string status) {
 		mvwhline(this.input_window, 0, 0, 0, COLS);
 		mvwprintw(this.input_window, 0, 2, "%.*s", this.tribune_names[this.active]);
@@ -128,31 +149,37 @@ class NCUI {
 		wrefresh(this.input_window);
 	}
 
-	void highlight_post(NCPost post) {
+	void highlight_post(NCPost post, NCPost origin) {
 		if (post.offset > this.offset - this.posts_window.maxy) {
 			int line = this.posts_window.maxy - (this.offset - post.offset);
 			wattron(this.posts_window, post.tribune.color(true));
-			mvwprintw(this.posts_window, line, 0, "#");
+			mvwprintw(this.posts_window, line, 0, " ");
 			wattroff(this.posts_window, post.tribune.color(true));
-			wrefresh(this.posts_window);
 
-			top_panel(this.preview_panel);
-			wclear(this.preview_window);
 			scrollok(this.preview_window, true);
 
-			wresize(this.preview_window, 3, COLS);
-			int height = append_post(this.preview_window, post, false, 0);
-			wresize(this.preview_window, height, COLS);
+			wresize(this.preview_window, post.lines, COLS);
 			wclear(this.preview_window);
 			append_post(this.preview_window, post, false, 0);
-			wresize(this.preview_window, height + 1, COLS);
-			mvwhline(this.preview_window, height, 0, 0, COLS);
-			wrefresh(preview_window);
+			wresize(this.preview_window, post.lines + 1, COLS);
+			mvwhline(this.preview_window, post.lines, 0, 0, COLS);
+
+			wnoutrefresh(this.preview_window);
+			wnoutrefresh(this.posts_window);
+			top_panel(this.preview_panel);
 			update_panels();
 			doupdate();
 
 			this.set_status(post.post.clock);
 		}
+	}
+
+	void show_info(NCPost post) {
+		wmove(this.input_window, 1, 0);
+		wclrtoeol(this.input_window);
+		string post_info = format("[%s] id=%s ua=%s", post.tribune.tribune.name, post.post.post_id, post.post.info);
+		mvwprintw(this.input_window, 1, 0, "%.*s", post_info);
+		wrefresh(this.input_window);
 	}
 
 	void unhighlight_post(NCPost post) {
@@ -161,7 +188,7 @@ class NCUI {
 			wattron(this.posts_window, post.tribune.color());
 			mvwprintw(this.posts_window, line, 0, "*");
 			wattroff(this.posts_window, post.tribune.color());
-			wrefresh(this.posts_window);
+			wnoutrefresh(this.posts_window);
 
 			top_panel(this.main_panel);
 			update_panels();
@@ -176,12 +203,14 @@ class NCUI {
 		wchgat(this.posts_window, stop.length, A_REVERSE, 0, null);
 
 		wmove(this.input_window, 1, 0);
-		wrefresh(this.posts_window);
-		wrefresh(this.input_window);
+		wnoutrefresh(this.posts_window);
+		wnoutrefresh(this.input_window);
 
 		if (stop.referenced_post) {
-			this.highlight_post(stop.referenced_post);
+			this.highlight_post(stop.referenced_post, stop.post);
 		}
+
+		show_info(stop.post);
 	}
 
 	void unhighlight_stop(Stop stop) {
@@ -191,11 +220,13 @@ class NCUI {
 		wchgat(this.posts_window, stop.length, stop.attributes, stop.color, null);
 
 		wmove(this.input_window, 1, 0);
-		wrefresh(this.posts_window);
-		wrefresh(this.input_window);
+		wnoutrefresh(this.posts_window);
+		wnoutrefresh(this.input_window);
 
 		if (stop.referenced_post) {
 			this.unhighlight_post(stop.referenced_post);
+		} else {
+			doupdate();
 		}
 	}
 
@@ -243,13 +274,27 @@ class NCUI {
 					string prompt = "> ";
 					string initial_text = this.current_stop !is Stop.init ? this.current_stop.post.post.clock ~ " " : "";
 
-					mvwprintw(this.input_window, 1, 0, prompt.toStringz());
-					string text = uput(this.input_window, 1, cast(int)prompt.count, COLS - cast(int)prompt.count, initial_text, true);
-					if (this.tribunes[this.tribune_names[this.active]].tribune.post(text)) {
-						wmove(this.input_window, 1, 0);
-						wclrtoeol(this.input_window);
+					mvwprintw(this.input_window, 1, 0, "%.*s", prompt);
+
+					if (this.current_stop !is Stop.init) {
+						foreach (int n, string name; this.tribune_names) {
+							if (this.tribunes[name] == this.current_stop.post.tribune) {
+								this.active = n;
+							}
+						}
+						this.set_status("");
+					}
+
+					int exit;
+					curs_set(2);
+					string text = uput(this.input_window, 1, cast(int)prompt.count, COLS - cast(int)prompt.count, initial_text, true, exit);
+					curs_set(0);
+					if (exit == 0 && this.tribunes[this.tribune_names[this.active]].tribune.post(text)) {
 						this.tribunes[this.tribune_names[this.active]].fetch_posts();
 					}
+					wmove(this.input_window, 1, 0);
+					wclrtoeol(this.input_window);
+					wrefresh(this.input_window);
 					break;
 				default:
 					break;
@@ -309,13 +354,13 @@ class NCUI {
 	}
 
 	int append_post(WINDOW* window, NCPost post, bool add_stops, int offset) {
+		int offset_start = offset;
 		offset++;
 
 		wscrl(window, 1);
 
 		int x = 0;
 		string clock = post.post.clock;
-		string user = post.post.login;
 
 		wattron(window, post.tribune.color());
 		mvwprintw(window, window.maxy, x, "*");
@@ -334,11 +379,17 @@ class NCUI {
 		mvwprintw(window, window.maxy, x, " ");
 		x += 1;
 
-		wattron(window, A_BOLD);
-		mvwprintw(window, window.maxy, x, "%.*s", user);
-		wattroff(window, A_BOLD);
-
-		x += std.utf.count(user);
+		if (post.post.login.length > 0) {
+			wattron(window, A_BOLD);
+			mvwprintw(window, window.maxy, x, "%.*s", post.post.login);
+			x += post.post.login.count;
+			wattroff(window, A_BOLD);
+		} else {
+			wattron(window, this.colors["red"]);
+			mvwprintw(window, window.maxy, x, "%.*s", post.post.short_info);
+			x += post.post.short_info.count;
+			wattroff(window, this.colors["red"]);
+		}
 
 		mvwprintw(window, window.maxy, x, "> ");
 		x += 2;
@@ -364,7 +415,7 @@ class NCUI {
 			}
 
 			bool is_clock = false;
-			auto clock_regex = regex(`((([01]?[0-9])|(2[0-3])):([0-5][0-9])(:([0-5][0-9]))?([:\^][0-9]|¹|²|³)?)`);
+			auto clock_regex = ctRegex!(`((([01]?[0-9])|(2[0-3])):([0-5][0-9])(:([0-5][0-9]))?([:\^][0-9]|¹|²|³)?)`);
 			if (sub.strip().match(clock_regex)) {
 				wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
 				if (!(current_attributes & A_BOLD)) {
@@ -427,7 +478,7 @@ class NCUI {
 
 		wrefresh(window);
 
-		post.lines = offset - post.offset + 1;
+		post.lines = offset - offset_start;
 
 		return offset;
 	}
@@ -444,6 +495,8 @@ class NCTribune {
 	NCUI ui;
 	int _color;
 	NCPost[] posts;
+
+	bool updating;
 
 	this(NCUI ui, Tribune tribune) {
 		this.ui = ui;
@@ -497,9 +550,29 @@ class NCTribune {
 		}
 	};
 
+	void start_timer() {
+		core.thread.Thread t = new core.thread.Thread({
+			while (true) {
+				if (!this.updating) {
+					this.updating = true;
+					this.tribune.fetch_posts();
+					this.updating = false;
+				}
+
+				core.thread.Thread.sleep(dur!("seconds")(this.tribune.refresh));
+			}
+		});
+		t.start();
+	}
+
 	void fetch_posts(void delegate() callback = null) {
+		while (this.updating) {
+			core.thread.Thread.sleep(dur!("msecs")(50));
+		}
+		this.updating = true;
 		core.thread.Thread t = new core.thread.Thread({
 			this.tribune.fetch_posts();
+			this.updating = false;
 			if (callback) {
 				callback();
 			}
