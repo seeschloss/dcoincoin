@@ -582,36 +582,6 @@ class NCTribune {
 		return invert ? this._color + 7 : this._color;
 	}
 
-	string[] tokenize(string line) {
-		line = line.replace(regex(`\s+`, "g"), " ");
-		line = line.replace(regex(`<a href=['"](.*?)['"]>.*?</a>`, "g"), "<$1>");
-
-		string[] tokens = [""];
-
-		bool next = false;
-		foreach (char c; line) {
-			switch (c) {
-				case '<':
-				case ' ':
-					tokens ~= "";
-					break;
-				case '>':
-					next = true;
-					break;
-				default:
-					break;
-			}
-
-			tokens[$-1] ~= c;
-
-			if (next) {
-				next = false;
-			}
-		}
-
-		return tokens;
-	}
-
 	void on_new_post(Post post) {
 		NCPost p = new NCPost(this, post);
 		this.posts ~= p;
@@ -673,7 +643,11 @@ class NCPost {
 
 	string[] tokenize() {
 		string line = this.post.message.replace(regex(`\s+`, "g"), " ");
-		line = line.replace(regex(`<a href=['"](.*?)['"]>.*?</a>`, "g"), "<$1>");
+
+		// Since I can't use backreferences here...
+		line = line.replace(regex(`<a href="(.*?)".*?>(.*?)</a>`, "g"), "<$1>");
+		line = line.replace(regex(`<a href='(.*?)'.*?>(.*?)</a>`, "g"), "<$1>");
+
 		line = std.array.replace(line, "&lt;", "<");
 		line = std.array.replace(line, "&gt;", ">");
 		line = std.array.replace(line, "&amp;", "&");
@@ -684,8 +658,11 @@ class NCPost {
 		foreach (char c; line) {
 			switch (c) {
 				case '<':
+					tokens ~= "";
+					break;
 				case ' ':
 					tokens ~= "";
+					next = true;
 					break;
 				case '>':
 					next = true;
