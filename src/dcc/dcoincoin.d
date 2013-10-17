@@ -265,6 +265,10 @@ class NCUI {
 	}
 
 	void loop() {
+		scope (exit) {
+			endwin();
+		}
+
 		while (true) {
 			wmove(this.input_window, 1, 0);
 
@@ -348,8 +352,6 @@ class NCUI {
 					break;
 			}
 		}
-
-		endwin();
 	}
 
 	void adjust_stop() {
