@@ -1,4 +1,4 @@
-DC=dmd
+DC=ldc2
 DCFLAGS=-L-lcurl -L-lpanel -L-lncursesw
 
 all: dcoincoin-cli
