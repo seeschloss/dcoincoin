@@ -73,7 +73,12 @@ class Tribune {
 
 		Post[string] posts;
 
-		auto control_chars = std.regex.ctRegex!(`\p{Control}`, "g");
+		version (GNU) {
+			// GDC seems to have problems with Unicode classes.
+			auto control_chars = std.regex.ctRegex!(`[\x00-\x1F]`, "g");
+		} else {
+			auto control_chars = std.regex.ctRegex!(`\p{Control}`, "g");
+		}
 
 		xml.onStartTag["post"] = (ElementParser xml) {
 			Post post = new Post();
