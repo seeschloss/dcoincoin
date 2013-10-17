@@ -2,3 +2,4 @@
 *.swo
 bin/*
 .dcoincoinrc
+build/*

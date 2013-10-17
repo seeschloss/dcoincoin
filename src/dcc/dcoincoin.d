@@ -6,6 +6,8 @@ private import std.regex;
 private import std.utf : count;
 private import std.conv;
 private import std.algorithm : filter, sort;
+private import std.file : exists;
+private import std.process : environment;
 
 private import core.thread;
 
@@ -21,8 +23,25 @@ extern (C) { char* setlocale(int category, const char* locale); }
 void main(string[] args) {
 	setlocale(0, "".toStringz());
 
-	NCUI ui = new NCUI(".dcoincoinrc");
-	ui.loop();
+	string config_file = environment.get("HOME") ~ "/.dcoincoinrc";
+
+	if (args.length == 2) {
+		config_file = args[1];
+	}
+
+	if (!config_file.exists()) {
+		stderr.writeln("Configuration file ", config_file, " does not exist.");
+		return;
+	}
+
+	NCUI ui = new NCUI(config_file);
+
+	if (ui.tribunes.length == 0) {
+		endwin();
+		stderr.writeln("You should try to configure at least one tribune!");
+	} else {
+		ui.loop();
+	}
 }
 
 struct Stop {
@@ -60,11 +79,12 @@ class NCUI {
 	this(string config_file) {
 		this.config_file = config_file;
 
-		this.config = new Config(".dcoincoinrc");
+		this.config = new Config(this.config_file);
 
 		this.init_ui();
 
 		auto n_tribunes = this.config.tribunes.length;
+
 		int n = 2;
 
 		// Create all tribunes, then fetch their posts without displaying
@@ -662,10 +682,14 @@ class NCPost {
 				case '<':
 					tokens ~= "";
 					break;
+				case '{':
+				case '[':
+				case '(':
 				case ' ':
 					tokens ~= "";
 					next = true;
 					break;
+				case ']':
 				case '>':
 					next = true;
 					break;
