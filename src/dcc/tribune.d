@@ -127,7 +127,7 @@ class Tribune {
 
 	string fetch_backend() {
 		auto connection = HTTP();
-		connection.addRequestHeader("User-Agent", this.ua);
+		connection.addRequestHeader("User-Agent", "DCoinCoin/1.99");
 		ubyte[] backend = get!(HTTP, ubyte)(this.xml_url, connection);
 
 		if (backend.length > 0) {
