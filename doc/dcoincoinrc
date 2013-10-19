@@ -2,6 +2,18 @@
 ua=DCoinCoin/%v
 refresh=30
 
+[euro]
+name=euro
+post_url=http://euromussels.eu/tribune/post
+post_format=message=%s
+xml_url=http://euromussels.eu/tribune.xml
+
+[hadoken]
+name=hadoken
+post_url=http://hadoken.free.fr/board/post.php
+post_format=message=%s
+xml_url=http://hadoken.free.fr/board/remote.php
+
 [see]
 name=see
 post_url=http://tout.essaye.sauf.ca/tribune/post
