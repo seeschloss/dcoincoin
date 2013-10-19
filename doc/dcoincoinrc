@@ -1,5 +1,5 @@
 [global]
-ua=DCoinCoin/1.99
+ua=DCoinCoin/%v
 refresh=30
 
 [see]

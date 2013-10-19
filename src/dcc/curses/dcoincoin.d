@@ -1,4 +1,4 @@
-module dcc.cli;
+module dcc.curses.cli;
 
 private import std.stdio;
 private import std.string;
@@ -11,9 +11,9 @@ private import std.process : environment;
 
 private import core.thread;
 
-private import dcc.conf;
-private import dcc.tribune;
-private import dcc.uput;
+private import dcc.engine.conf;
+private import dcc.engine.tribune;
+private import dcc.curses.uput;
 
 private import deimos.ncurses.ncurses;
 private import deimos.ncurses.panel;

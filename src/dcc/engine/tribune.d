@@ -1,6 +1,6 @@
-module dcc.tribune;
+module dcc.engine.tribune;
 
-private import std.stdio;
+private import dcc.common;
 
 private import std.net.curl;
 private import std.xml;
@@ -127,7 +127,7 @@ class Tribune {
 
 	string fetch_backend() {
 		auto connection = HTTP();
-		connection.addRequestHeader("User-Agent", "DCoinCoin/1.99");
+		connection.addRequestHeader("User-Agent", "DCoinCoin/" ~ VERSION);
 		ubyte[] backend = get!(HTTP, ubyte)(this.xml_url, connection);
 
 		if (backend.length > 0) {
@@ -139,7 +139,7 @@ class Tribune {
 
 	bool post(string message) {
 		auto connection = HTTP();
-		connection.addRequestHeader("User-Agent", this.ua);
+		connection.addRequestHeader("User-Agent", std.array.replace(this.ua, "%v", VERSION));
 		connection.addRequestHeader("Referer", this.xml_url);
 
 		if (this.cookie.length) {

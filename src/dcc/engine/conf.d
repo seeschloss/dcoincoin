@@ -1,6 +1,6 @@
-module dcc.conf;
+module dcc.engine.conf;
 
-private import dcc.tribune;
+private import dcc.engine.tribune;
 private import ini.dini;
 
 private import std.file;
@@ -9,7 +9,7 @@ private import std.conv;
 class Config {
 	Tribune[] tribunes;
 
-	string default_ua = "DCoinCoin/1.99";
+	string default_ua = "DCoinCoin/%v";
 	int default_refresh = 30;
 
 	this(string file) {

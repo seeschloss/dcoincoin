@@ -1,4 +1,4 @@
-module dcc.uput;
+module dcc.curses.uput;
 
 private import std.string;
 private import std.utf : count;
