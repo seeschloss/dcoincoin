@@ -294,6 +294,8 @@ class NCUI {
 			endwin();
 		}
 
+		this.set_status("");
+
 		while (true) {
 			wmove(this.input_window, 1, 0);
 
@@ -330,7 +332,9 @@ class NCUI {
 					break;
 				case KEY_DOWN:
 					if (!this.next_stop()) {
-						// We're at the bottom... scroll?
+						// We're at the bottom... unselect everything.
+						unhighlight_stop(this.current_stop);
+						this.current_stop = Stop.init;
 					}
 					break;
 				case KEY_HOME:
@@ -402,12 +406,17 @@ class NCUI {
 
 		if (new_stop != Stop.init) {
 			this.set_stop(new_stop);
+			return true;
 		}
 
-		return new_stop.offset != old_stop.offset || new_stop.start != old_stop.start;
+		return false;
 	}
 
 	bool next_stop() {
+		if (this.current_stop == Stop.init) {
+			return false;
+		}
+
 		Stop new_stop;
 		Stop old_stop = this.current_stop;
 		if (this.current_stop is Stop.init) foreach (Stop stop; this.stops) {
@@ -429,7 +438,7 @@ class NCUI {
 			this.set_stop(new_stop);
 		}
 
-		return new_stop.offset != old_stop.offset || new_stop.start != old_stop.start;
+		return new_stop != this.stops[$];
 	}
 
 	void set_stop(Stop stop) {
