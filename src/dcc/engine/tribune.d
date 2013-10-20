@@ -40,14 +40,26 @@ class Tribune {
 
 	bool fetch_posts() {
 		string backend = this.fetch_backend();
-		Post[string] posts = this.parse_backend(backend);
+		Post[] posts = this.parse_backend(backend).values;
+		posts.sort!((a, b) => a.post_id < b.post_id);
 
 		// Let's insert the new posts and keep track of their ids.
 		string[] new_ids;
-		foreach (string id, Post post; posts) {
-			if (id !in this.posts) {
-				new_ids ~= id;
-				this.posts[id] = post;
+		Post last_post;
+		foreach (Post post; posts) {
+			if (post.post_id !in this.posts) {
+				new_ids ~= post.post_id;
+				this.posts[post.post_id] = post;
+
+				if (last_post !is null && post.clock == last_post.clock) {
+					if (last_post.index == 0) {
+						last_post.index = 1;
+					}
+
+					post.index = last_post.index + 1;
+				}
+
+				last_post = post;
 			}
 		}
 
@@ -162,6 +174,8 @@ class Post {
 	string message;
 	string login;
 
+	int index = 0;
+
 	Tribune tribune;
 
 	override string toString() {
@@ -191,7 +205,19 @@ class Post {
 	}
 
 	string clock_ref() {
-		return format("%02s:%02s:%02s", this.time.hour, this.time.minute, this.time.second);
+		string clock = this.clock;
+
+		switch (this.index) {
+			case 0: break;
+			case 1: clock ~= "¹"; break;
+			case 2: clock ~= "²"; break;
+			case 3: clock ~= "³"; break;
+			default:
+				clock ~= ":" ~ to!string(this.index);
+				break;
+		}
+
+		return clock;
 	}
 
 	string short_info() {

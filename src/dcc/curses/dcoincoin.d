@@ -116,7 +116,13 @@ class NCUI {
 		foreach (NCTribune tribune; this.tribunes) {
 			posts ~= tribune.posts;
 		}
-		posts.sort!((a, b) => a.post.timestamp < b.post.timestamp);
+		posts.sort!((a, b) {
+			if (a.post.timestamp == b.post.timestamp) {
+				return a.post.post_id < b.post.post_id;
+			} else {
+				return a.post.timestamp < b.post.timestamp;
+			}
+		});
 
 		this.display_enabled = true;
 		foreach (NCPost post; posts[$-this.posts_window.maxy .. $]) {
