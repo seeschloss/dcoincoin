@@ -11,6 +11,7 @@ DLIBS=curl panel ncursesw
 all: $(BINDIR)/dcoincoin-curses
 
 $(BINDIR)/%:
+	mkdir -p $(BINDIR)
 ifneq (,$(findstring gdc,$(DC)))
 	$(DC) $(foreach lib, $(DLIBS), -l$(lib)) \
 		-I$(SRCDIR) -O3 \

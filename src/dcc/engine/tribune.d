@@ -190,6 +190,10 @@ class Post {
 		return format("%02s:%02s:%02s", this.time.hour, this.time.minute, this.time.second);
 	}
 
+	string clock_ref() {
+		return format("%02s:%02s:%02s", this.time.hour, this.time.minute, this.time.second);
+	}
+
 	string short_info() {
 		auto max = min(10, this.info.length);
 		return this.info[0 .. max];

@@ -5,6 +5,7 @@ private import ini.dini;
 
 private import std.file;
 private import std.conv;
+private import std.algorithm : map;
 
 class Config {
 	Tribune[] tribunes;
@@ -32,6 +33,8 @@ class Config {
 	Tribune tribune_from_section(IniSection section) {
 		string name = section.getKey("name");
 		string[] aliases = section.getKey("aliases").split(",");
+		// Why can't I just use map! here? I don't understand.
+		foreach (int i, string a; aliases) { aliases[i] = a.strip(); }
 		string post_url = section.getKey("post_url");
 		string post_format = section.getKey("post_format");
 		string xml_url = section.getKey("xml_url");

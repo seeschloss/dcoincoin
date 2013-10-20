@@ -5,7 +5,7 @@ private import std.string;
 private import std.regex;
 private import std.utf : count;
 private import std.conv;
-private import std.algorithm : filter, sort;
+private import std.algorithm : filter, sort, find;
 private import std.file : exists;
 private import std.process : environment;
 
@@ -248,7 +248,6 @@ class NCUI {
 		top_panel(this.main_panel);
 		update_panels();
 		doupdate();
-		this.set_status("");
 	}
 
 	void highlight_stop(Stop stop) {
@@ -344,7 +343,7 @@ class NCUI {
 					break;
 				case 0x0A:
 					string prompt = "> ";
-					string initial_text = this.current_stop !is Stop.init ? this.current_stop.post.post.clock ~ " " : "";
+					string initial_text = this.current_stop !is Stop.init ? this.current_stop.post.post.clock_ref ~ " " : "";
 
 					mvwprintw(this.input_window, 1, 0, "%.*s", prompt);
 
@@ -375,7 +374,7 @@ class NCUI {
 	}
 
 	void adjust_stop() {
-		if (this.current_stop.offset < this.offset) {
+		if (this.current_stop.offset < this.offset - this.posts_window.maxy + 1) {
 			next_stop();
 		}
 	}
@@ -498,8 +497,9 @@ class NCUI {
 			}
 
 			bool is_clock = false;
-			auto clock_regex = ctRegex!(`((([01]?[0-9])|(2[0-3])):([0-5][0-9])(:([0-5][0-9]))?([:\^][0-9]|¹|²|³)?)`);
-			if (sub.strip().match(clock_regex)) {
+			// Trying to name the last part seems to break everything? Not sure why.
+			auto clock_regex = ctRegex!(`(?P<time>(?:(?:[01]?[0-9])|(?:2[0-3])):(?:[0-5][0-9])(?::(?:[0-5][0-9]))?)((?:(?:[:\^][0-9])|¹|²|³)?)((?:@[A-Za-z]*)?)`);
+			if (auto match = sub.strip().match(clock_regex)) {
 				wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
 				if (!(current_attributes & A_BOLD)) {
 					wattron(window, A_BOLD);
@@ -511,7 +511,49 @@ class NCUI {
 				wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
 
 				if (add_stops) {
-					this.stops ~= Stop(offset, x, cast(int)sub.count, post, current_attributes, pair, post.tribune.find_referenced_post(sub.strip()));
+					auto captures = match.captures;
+					string time_part = captures["time"];
+					string tribune_part = captures[3];
+					int index_part = 1; //
+
+					if (captures[2].length > 0) {
+						try {
+							switch (to!dstring(captures[2])[0]) {
+								case ':':
+								case '^':
+									index_part = to!int(captures[2][1 .. $]);
+									break;
+								case '¹': index_part = 1; break;
+								case '²': index_part = 2; break;
+								case '³': index_part = 3; break;
+								case '⁴': index_part = 4; break;
+								case '⁵': index_part = 5; break;
+								case '⁶': index_part = 6; break;
+								case '⁷': index_part = 7; break;
+								case '⁸': index_part = 8; break;
+								case '⁹': index_part = 9; break;
+								default: break;
+							}
+						} catch (Exception e) {
+							// Just keep 1.
+						}
+					}
+
+					NCTribune ref_tribune = post.tribune;
+					if (tribune_part.length > 1) {
+						// Remove leading @
+						tribune_part = tribune_part[1 .. $];
+						if (tribune_part in this.tribunes) {
+							ref_tribune = this.tribunes[tribune_part];
+						} else foreach (NCTribune t; this.tribunes) {
+							if (find(t.tribune.aliases, tribune_part).length > 0) {
+								ref_tribune = t;
+								break;
+							}
+						}
+					}
+
+					this.stops ~= Stop(offset, x, cast(int)sub.count, post, current_attributes, pair, ref_tribune.find_referenced_post(time_part, index_part));
 				}
 			}
 
@@ -640,11 +682,23 @@ class NCTribune {
 		t.start();
 	}
 
-	NCPost find_referenced_post(string clock) {
+	NCPost find_referenced_post(string clock, int index = 1) {
+		NCPost[] matching;
 		foreach_reverse(NCPost post; this.posts) {
 			if (post.post.clock == clock) {
-				return post;
+				matching ~= post;
+			} else if (matching.length > 0) {
+				// We have already found at least one matching post,
+				// and this one doesn't match, so any further matching
+				// post would be an older, not consecutive, post.
+				break;
 			}
+		}
+
+		index = cast(int)(matching.length - index);
+
+		if (index >= 0) {
+			return matching[index];
 		}
 
 		return null;
