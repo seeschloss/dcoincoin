@@ -767,7 +767,6 @@ class NCPost {
 				case '<':
 					tokens ~= "";
 					break;
-				case '/':
 				case '{':
 				case '[':
 				case '(':
