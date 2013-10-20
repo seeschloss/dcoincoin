@@ -2,7 +2,7 @@ module dcc.curses.uput;
 
 private import std.string;
 private import std.utf : count;
-private import std.conv;
+private import std.conv : to;
 
 private import deimos.ncurses.ncurses;
 
@@ -70,7 +70,7 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 				}
 				break;
 			case KEY_RIGHT:
-				if (curspos != length-1 && curspos < whole.length) {
+				if (curspos != length-1 && curspos < whole.count) {
 					curspos++;
 				}
 				break;
@@ -81,8 +81,8 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 			case KEY_END:
 				//case KEY_C1: =KEY_END on Linux so not required
 				whole = whole.stripRight();
-				curspos = cast(int)whole.length;
-				if (whole.length == length) {
+				curspos = cast(int)whole.count;
+				if (curspos == length) {
 					curspos--;
 				}
 				break;
@@ -95,7 +95,7 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 				}
 				break;
 			case KEY_DC: //delete key
-				if (curspos > whole.length - 1) {
+				if (curspos > whole.count - 1) {
 					break;
 				}
 
@@ -137,8 +137,8 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 				break;
 			default:
 				if (ins) {
-					if (curspos < whole.length) {
-						if (whole.length < length) {
+					if (curspos < whole.count) {
+						if (whole.count < length) {
 							dstring utf32 = to!dstring(whole.dup);
 							whole = to!string(utf32[0 .. curspos] ~ ky ~ utf32[curspos .. $]);
 						} else {
@@ -148,7 +148,7 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 						whole ~= ky;
 					}
 				} else {
-					if (curspos < whole.length) {
+					if (curspos < whole.count) {
 						dstring utf32 = to!dstring(whole.dup);
 						whole = to!string(utf32[0 .. curspos] ~ ky ~ utf32[curspos .. $]);
 					} else {

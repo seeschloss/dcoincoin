@@ -382,7 +382,7 @@ class NCUI {
 						this.set_status("");
 					}
 
-					int exit;
+					int exit = 1;
 					curs_set(2);
 					string text = uput(this.input_window, 1, cast(int)prompt.count, COLS - cast(int)prompt.count, initial_text, true, exit);
 					curs_set(0);
@@ -767,6 +767,7 @@ class NCPost {
 				case '<':
 					tokens ~= "";
 					break;
+				case '/':
 				case '{':
 				case '[':
 				case '(':
