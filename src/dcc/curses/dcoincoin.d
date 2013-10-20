@@ -40,7 +40,6 @@ void main(string[] args) {
 			}
 		}
 	}
-	return;
 
 	if (args.length == 2) {
 		config_file = args[1];
