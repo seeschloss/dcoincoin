@@ -4,9 +4,9 @@ private import std.stdio;
 private import std.string;
 private import std.regex;
 private import std.utf : count;
-private import std.conv;
+private import std.conv : to;
 private import std.algorithm : filter, sort, find;
-private import std.file : exists;
+private import std.file : exists, copy;
 private import std.process : environment;
 
 private import core.thread;
@@ -24,6 +24,23 @@ void main(string[] args) {
 	setlocale(0, "".toStringz());
 
 	string config_file = environment.get("HOME") ~ "/.dcoincoinrc";
+
+	if (!config_file.exists()) {
+		foreach (string prefix; ["/usr", "/usr/local"]) {
+			string rc = prefix ~ "/share/doc/dcoincoin/dcoincoinrc";
+			if (rc.exists()) {
+				try {
+					rc.copy(config_file);
+					stderr.writeln("Initialized ", config_file, " with ", rc, ".");
+					break;
+				}
+				catch (Exception e) {
+					// Nothing special to do here.
+				}
+			}
+		}
+	}
+	return;
 
 	if (args.length == 2) {
 		config_file = args[1];
