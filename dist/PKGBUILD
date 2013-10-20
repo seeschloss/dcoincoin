@@ -1,6 +1,8 @@
 # Maintainer: SeeSchloss <see@seos.fr>
 pkgname=dcoincoin-git
-pkgver=2.00
+
+pkgver=2.0-28.f4a277e
+_dccver=2.0
 pkgrel=1
 pkgdesc="DCoinCoin is a curses, D language, tribune feed reader"
 arch=('i686' 'x86_64')
@@ -15,7 +17,7 @@ md5sums=('SKIP')
 
 pkgver() {
   cd "$pkgname"
-  printf "%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  printf "%s.%s.%s" "$_dccver" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {
