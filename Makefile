@@ -5,13 +5,12 @@ BINDIR=bin
 DOCDIR=doc
 SRCDIR=src
 BUILDDIR=build
-COMMONSOURCES=$(shell find $(SRCDIR) -type f -name '*.d')
 SOURCES=$(shell find $(SRCDIR) -type f -name '*.d')
 DLIBS=curl panel ncurses
 
 all: $(BINDIR)/dcoincoin-curses
 
-$(BINDIR)/%: $(COMMONSOURCES)
+$(BINDIR)/%: $(SOURCES)
 	mkdir -p $(BINDIR)
 ifneq (,$(findstring gdc,$(DC)))
 	$(DC) $(foreach lib, $(DLIBS), -l$(lib)) \
