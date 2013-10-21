@@ -193,13 +193,13 @@ class NCUI {
 		init_pair( 6, COLOR_MAGENTA, COLOR_BLACK);
 		init_pair( 7, COLOR_CYAN,    COLOR_BLACK);
 
-		init_pair( 8, COLOR_BLACK, COLOR_WHITE  );
-		init_pair( 9, COLOR_BLACK, COLOR_RED    );
-		init_pair(10, COLOR_BLACK, COLOR_GREEN, );
-		init_pair(11, COLOR_BLACK, COLOR_YELLOW );
-		init_pair(12, COLOR_BLACK, COLOR_BLUE   );
-		init_pair(13, COLOR_BLACK, COLOR_MAGENTA);
-		init_pair(14, COLOR_BLACK, COLOR_CYAN   );
+		init_pair( 8, COLOR_WHITE, COLOR_WHITE  );
+		init_pair( 9, COLOR_WHITE, COLOR_RED    );
+		init_pair(10, COLOR_WHITE, COLOR_GREEN, );
+		init_pair(11, COLOR_WHITE, COLOR_YELLOW );
+		init_pair(12, COLOR_WHITE, COLOR_BLUE   );
+		init_pair(13, COLOR_WHITE, COLOR_MAGENTA);
+		init_pair(14, COLOR_WHITE, COLOR_CYAN   );
 
 		this.colors["white"]   = COLOR_PAIR(1);
 		this.colors["red"]     = COLOR_PAIR(2);
@@ -231,7 +231,7 @@ class NCUI {
 		if (post.offset > this.offset - this.posts_window.maxy) {
 			int line = this.posts_window.maxy - (this.offset - post.offset);
 			mvwprintw(this.posts_window, line, 0, ">");
-			mvwchgat(this.posts_window, line, 0, 1, A_NORMAL, cast(short)post.tribune.ncolor(true), cast(void*)null);
+			mvwchgat(this.posts_window, line, 0, 1, A_BOLD, cast(short)post.tribune.ncolor(true), cast(void*)null);
 			wnoutrefresh(this.posts_window);
 		}
 
@@ -403,6 +403,7 @@ class NCUI {
 		if (this.current_stop.offset < this.offset - this.posts_window.maxy + 1) {
 			next_stop();
 		}
+		highlight_stop(this.current_stop);
 	}
 
 	bool prev_stop() {
