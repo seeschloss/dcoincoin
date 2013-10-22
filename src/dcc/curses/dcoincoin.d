@@ -529,63 +529,35 @@ class NCUI {
 			}
 
 			bool is_clock = false;
-			// Trying to name the last part seems to break everything? Not sure why.
-			auto clock_regex = ctRegex!(`(?P<time>(?:(?:[01]?[0-9])|(?:2[0-3])):(?:[0-5][0-9])(?::(?:[0-5][0-9]))?)((?:(?:[:\^][0-9])|¹|²|³)?)((?:@[A-Za-z]*)?)`);
-			if (auto match = sub.strip().match(clock_regex)) {
-				wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
-				if (!(current_attributes & A_BOLD)) {
-					wattron(window, A_BOLD);
-					is_clock = true;
-				}
 
-				has_clocks = true;
-
-				wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
-
-				if (add_stops) {
-					auto captures = match.captures;
-					string time_part = captures["time"];
-					string tribune_part = captures[3];
-					int index_part = 1; //
-
-					if (captures[2].length > 0) {
-						try {
-							switch (to!dstring(captures[2])[0]) {
-								case ':':
-								case '^':
-									index_part = to!int(captures[2][1 .. $]);
-									break;
-								case '¹': index_part = 1; break;
-								case '²': index_part = 2; break;
-								case '³': index_part = 3; break;
-								case '⁴': index_part = 4; break;
-								case '⁵': index_part = 5; break;
-								case '⁶': index_part = 6; break;
-								case '⁷': index_part = 7; break;
-								case '⁸': index_part = 8; break;
-								case '⁹': index_part = 9; break;
-								default: break;
-							}
-						} catch (Exception e) {
-							// Just keep 1.
-						}
-					}
-
+			foreach (Clock post_clock; post.post.clocks) {
+				if (sub.strip == post_clock.text) {
 					NCTribune ref_tribune = post.tribune;
-					if (tribune_part.length > 1) {
-						// Remove leading @
-						tribune_part = tribune_part[1 .. $];
-						if (tribune_part in this.tribunes) {
-							ref_tribune = this.tribunes[tribune_part];
-						} else foreach (NCTribune t; this.tribunes) {
-							if (find(t.tribune.aliases, tribune_part).length > 0) {
-								ref_tribune = t;
-								break;
-							}
-						}
+
+					wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
+					if (!(current_attributes & A_BOLD)) {
+						wattron(window, A_BOLD);
+						is_clock = true;
 					}
 
-					this.stops ~= Stop(offset, x, cast(int)sub.count, post, current_attributes, pair, ref_tribune.find_referenced_post(time_part, index_part));
+					has_clocks = true;
+
+					wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
+
+					if (add_stops) {
+						if (post_clock.tribune.length > 1) {
+							if (post_clock.tribune in this.tribunes) {
+								ref_tribune = this.tribunes[post_clock.tribune];
+							} else foreach (NCTribune t; this.tribunes) {
+								if (find(t.tribune.aliases, post_clock.tribune).length > 0) {
+									ref_tribune = t;
+									break;
+								}
+							}
+						}
+
+						this.stops ~= Stop(offset, x, cast(int)sub.count, post, current_attributes, pair, ref_tribune.find_referenced_post(post_clock.time, post_clock.index));
+					}
 				}
 			}
 

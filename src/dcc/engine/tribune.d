@@ -10,7 +10,7 @@ private import std.string;
 private import std.algorithm;
 private import std.uri;
 private import std.array;
-private import std.regex : regex, replace;
+private import std.regex : regex, replace, ctRegex, match;
 
 class Tribune {
 	string name;
@@ -116,6 +116,7 @@ class Tribune {
 
 			xml.parse();
 
+			post.analyze_clocks();
 			posts[post.post_id] = post;
 		};
 
@@ -165,6 +166,13 @@ class Tribune {
 	}
 }
 
+struct Clock {
+	string time;
+	int index;
+	string tribune;
+	string text;
+}
+
 class Post {
 	string post_id;
 	string _timestamp;
@@ -178,8 +186,61 @@ class Post {
 
 	Tribune tribune;
 
+	Clock[] clocks;
+
 	override string toString() {
 		return this.clock ~ " " ~ this.login ~ "> " ~ this.message;
+	}
+
+	void analyze_clocks() {
+		auto clock_regex = ctRegex!(
+			`(?P<time>`		// Time part: HH:MM[:SS]
+				`(?:`
+					`(?:[01]?[0-9])|(?:2[0-3])`		// Hour (00-23)
+				`)`
+				`:`
+				`(?:[0-5][0-9])`					// Minute (00-59)
+				`(?::(?:[0-5][0-9]))?`				// Optional seconds (00-59)
+			`)`
+			`(`	// Optional index part: ¹²³, :n, or ^n
+				`(?:(?:[:\^][0-9])|¹|²|³)?`
+			`)`
+			`(`	// Optional tribune part: @tribunename
+				`(?:@[A-Za-z]*)?`
+			`)`
+		);
+
+		if (auto match = this.message.match(clock_regex)) {
+			while (!match.empty) {
+				auto capture = match.front;
+
+				int index = 1;
+
+				if (capture[2].length > 0) switch (to!dstring(capture[2])[0]) {
+					case ':':
+					case '^':
+						try {
+							index = to!int(capture[2][1 .. $]);
+						}
+						catch (Exception e) {
+							// Let's keep index to 1.
+						}
+						break;
+					case '¹': index = 1; break;
+					case '²': index = 2; break;
+					case '³': index = 3; break;
+					default: break;
+				}
+
+				string clock_tribune = "";
+				if (capture[3].length > 0) {
+					clock_tribune = capture[3][1 .. $];
+				}
+				this.clocks ~= Clock(capture["time"], index, clock_tribune, capture.hit);
+
+				match.popFront();
+			}
+		}
 	}
 
 	string timestamp() {
