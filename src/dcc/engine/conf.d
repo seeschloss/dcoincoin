@@ -12,6 +12,7 @@ class Config {
 
 	string default_ua = "DCoinCoin/%v";
 	int default_refresh = 30;
+	string[] default_ignorelist;
 
 	this(string file) {
 		if (!exists(file)) {
@@ -24,6 +25,8 @@ class Config {
 			if (section.name == "global") {
 				this.default_ua = section.getKey("ua");
 				this.default_refresh = to!int(section.getKey("refresh"));
+				this.default_ignorelist = section.getKey("ignore").split(",");
+				foreach (int i, string s; this.default_ignorelist) { this.default_ignorelist[i] = s.strip(); }
 			} else {
 				tribunes ~= this.tribune_from_section(section);
 			}

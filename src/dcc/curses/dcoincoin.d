@@ -92,7 +92,6 @@ class NCUI {
 
 	bool display_enabled = false;
 
-
 	this(string config_file) {
 		this.config_file = config_file;
 
@@ -622,7 +621,7 @@ class NCUI {
 	}
 
 	void display_post(WINDOW* window, NCPost post, bool add_stops = true, bool scroll = true) {
-		if (this.display_enabled) {
+		if (this.display_enabled && !this.is_post_ignored(post)) {
 			post.offset = this.offset + 1;
 
 			synchronized {
@@ -632,6 +631,37 @@ class NCUI {
 				adjust_stop();
 			}
 		}
+	}
+
+	NCPost[] ignored_posts;
+
+	bool is_post_ignored(NCPost post) {
+		if (this.config.default_ignorelist.find(post.post.login).length > 0
+		 || this.config.default_ignorelist.find(post.post.info).length > 0) {
+			this.ignored_posts ~= post;
+
+			return true;
+		}
+
+		foreach (Clock clock; post.post.clocks) {
+			NCTribune ref_tribune = post.tribune;
+			if (clock.tribune in this.tribunes) {
+				ref_tribune = this.tribunes[clock.tribune];
+			} else foreach (NCTribune t; this.tribunes) {
+				if (find(t.tribune.aliases, clock.tribune).length > 0) {
+					ref_tribune = t;
+					break;
+				}
+			}
+
+			if (ref_tribune.find_referenced_post(clock.time, clock.index, this.ignored_posts)) {
+				this.ignored_posts ~= post;
+
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
 
@@ -697,9 +727,13 @@ class NCTribune {
 		t.start();
 	}
 
-	NCPost find_referenced_post(string clock, int index = 1) {
+	NCPost find_referenced_post(string clock, int index = 1, NCPost[] posts = null) {
+		if (posts is null) {
+			posts = this.posts;
+		}
+
 		NCPost[] matching;
-		foreach_reverse(NCPost post; this.posts) {
+		foreach_reverse(NCPost post; posts) {
 			if (clock.length > 5 && post.post.clock == clock) {
 				matching ~= post;
 			} else if (clock.length == 5 && post.post.clock[0 .. 5] == clock) {
