@@ -92,6 +92,7 @@ class NCUI {
 
 	bool display_enabled = false;
 
+
 	this(string config_file) {
 		this.config_file = config_file;
 
@@ -100,9 +101,7 @@ class NCUI {
 		this.init_ui();
 
 		auto n_tribunes = this.config.tribunes.length;
-
 		int n = 2;
-
 		// Create all tribunes, then fetch their posts without displaying
 		// them, and once all this is done then display the latest posts.
 		foreach (Tribune tribune ; this.config.tribunes) {
@@ -125,6 +124,11 @@ class NCUI {
 				n = 2;
 			}
 		}
+	}
+
+	void redraw_all_posts() {
+		wclear(this.posts_window);
+		this.display_all_posts();
 	}
 
 	void display_all_posts() {
@@ -322,6 +326,9 @@ class NCUI {
 			keypad(this.input_window, true);
 			auto ch = wgetch(this.input_window);
 			switch (ch) {
+				case KEY_RESIZE:
+					this.redraw_all_posts();
+					break;
 				case 0x20:
 					this.set_status("O");
 					this.tribunes[this.tribune_names[this.active]].fetch_posts({
