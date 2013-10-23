@@ -193,7 +193,7 @@ class Post {
 	}
 
 	void analyze_clocks() {
-		auto clock_regex = ctRegex!(
+		auto clock_regex = regex(
 			`(?P<time>`		// Time part: HH:MM[:SS]
 				`(?:`
 					`(?:[01]?[0-9])|(?:2[0-3])`		// Hour (00-23)
@@ -202,10 +202,10 @@ class Post {
 				`(?:[0-5][0-9])`					// Minute (00-59)
 				`(?::(?:[0-5][0-9]))?`				// Optional seconds (00-59)
 			`)`
-			`(`	// Optional index part: ¹²³, :n, or ^n
+			`(?P<index>`	// Optional index part: ¹²³, :n, or ^n
 				`(?:(?:[:\^][0-9])|¹|²|³)?`
 			`)`
-			`(`	// Optional tribune part: @tribunename
+			`(?P<tribune>`	// Optional tribune part: @tribunename
 				`(?:@[A-Za-z]*)?`
 			`)`
 		);
@@ -216,11 +216,11 @@ class Post {
 
 				int index = 1;
 
-				if (capture[2].length > 0) switch (to!dstring(capture[2])[0]) {
+				if (capture["index"].length > 0) switch (to!dstring(capture["index"])[0]) {
 					case ':':
 					case '^':
 						try {
-							index = to!int(capture[2][1 .. $]);
+							index = to!int(capture["index"][1 .. $]);
 						}
 						catch (Exception e) {
 							// Let's keep index to 1.
@@ -233,8 +233,8 @@ class Post {
 				}
 
 				string clock_tribune = "";
-				if (capture[3].length > 0) {
-					clock_tribune = capture[3][1 .. $];
+				if (capture["tribune"].length > 0) {
+					clock_tribune = capture["tribune"][1 .. $];
 				}
 				this.clocks ~= Clock(capture["time"], index, clock_tribune, capture.hit);
 
