@@ -328,6 +328,7 @@ class NCUI {
 			switch (ch) {
 				case KEY_RESIZE:
 					this.redraw_all_posts();
+					this.set_status("");
 					break;
 				case 0x20:
 					this.set_status("O");
