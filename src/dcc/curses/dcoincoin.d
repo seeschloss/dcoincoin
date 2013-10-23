@@ -700,7 +700,9 @@ class NCTribune {
 	NCPost find_referenced_post(string clock, int index = 1) {
 		NCPost[] matching;
 		foreach_reverse(NCPost post; this.posts) {
-			if (post.post.clock == clock) {
+			if (clock.length > 5 && post.post.clock == clock) {
+				matching ~= post;
+			} else if (clock.length == 5 && post.post.clock[0 .. 5] == clock) {
 				matching ~= post;
 			} else if (matching.length > 0) {
 				// We have already found at least one matching post,
