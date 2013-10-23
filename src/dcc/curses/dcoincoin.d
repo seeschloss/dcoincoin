@@ -255,6 +255,9 @@ class NCUI {
 			wclrtoeol(this.input_window);
 		}
 		string post_info = format("[%s] id=%s ua=%s", post.tribune.tribune.name, post.post.post_id, post.post.info);
+		if (post_info.count > this.input_window.maxx) {
+			post_info = post_info[0 .. this.input_window.maxx];
+		}
 		mvwprintw(this.input_window, 1, 0, "%.*s", post_info);
 		wrefresh(this.input_window);
 	}

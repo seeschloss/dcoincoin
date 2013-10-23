@@ -208,7 +208,7 @@ class Post {
 			`(?P<tribune>`	// Optional tribune part: @tribunename
 				`(?:@[A-Za-z]*)?`
 			`)`
-		);
+		, "g");
 
 		if (auto match = this.message.match(clock_regex)) {
 			while (!match.empty) {
