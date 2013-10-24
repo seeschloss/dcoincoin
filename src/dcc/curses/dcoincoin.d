@@ -234,7 +234,7 @@ class NCUI {
 		if (post.offset > this.offset - this.posts_window.maxy) {
 			int line = this.posts_window.maxy - (this.offset - post.offset);
 			mvwprintw(this.posts_window, line, 0, ">");
-			mvwchgat(this.posts_window, line, 0, 1, A_BOLD, cast(short)post.tribune.ncolor(true), cast(void*)null);
+			mvwchgat(this.posts_window, line, 0, 1 + 8, A_BOLD, cast(short)post.tribune.ncolor(true), cast(void*)null);
 			wnoutrefresh(this.posts_window);
 		}
 
@@ -270,6 +270,7 @@ class NCUI {
 			int line = this.posts_window.maxy - (this.offset - post.offset);
 			mvwprintw(this.posts_window, line, 0, " ");
 			mvwchgat(this.posts_window, line, 0, 1, A_NORMAL, cast(short)post.tribune.ncolor(true), cast(void*)null);
+			mvwchgat(this.posts_window, line, 1, 8, A_NORMAL, cast(short)1, cast(void*)null);
 			wnoutrefresh(this.posts_window);
 		}
 
