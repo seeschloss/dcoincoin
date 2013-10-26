@@ -792,6 +792,7 @@ class NCPost {
 				case '[':
 				case '(':
 				case ' ':
+				case ',':
 					tokens ~= "";
 					next = true;
 					break;
