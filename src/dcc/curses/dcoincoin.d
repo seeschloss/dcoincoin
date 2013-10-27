@@ -527,7 +527,7 @@ class NCUI {
 			// But if it's smaller and it's going to end
 			// outside the screen, then scroll and print
 			// it with some indentation.
-			if (x + length >= COLS && length < COLS) {
+			if (x + length >= COLS && length <= (COLS - 2)) {
 				x = 2;
 				wscrl(window, 1);
 				offset++;
@@ -601,7 +601,7 @@ class NCUI {
 				wattroff(window, A_BOLD);
 			}
 
-			if (length >= COLS) {
+			if (length >= (COLS - 2)) {
 				// Then the text will have wrapped several times.
 				offset += x/COLS;
 				x = x%COLS;
