@@ -223,8 +223,8 @@ class NCUI {
 
 	void set_status(string status) {
 		mvwhline(this.input_window, 0, 0, 0, COLS);
-		mvwprintw(this.input_window, 0, 2, "%.*s", this.tribune_names[this.active]);
-		mvwprintw(this.input_window, 0, cast(int)(COLS - 2 - status.length), "%.*s", status);
+		mvwprintw(this.input_window, 0, 2, "%s", this.tribune_names[this.active].toStringz());
+		mvwprintw(this.input_window, 0, cast(int)(COLS - 2 - status.length), "%s", status.toStringz());
 
 		wmove(this.input_window, 1, 0);
 		wrefresh(this.input_window);
@@ -261,7 +261,7 @@ class NCUI {
 		if (post_info.count > this.input_window.maxx) {
 			post_info = post_info[0 .. this.input_window.maxx];
 		}
-		mvwprintw(this.input_window, 1, 0, "%.*s", post_info);
+		mvwprintw(this.input_window, 1, 0, "%s", post_info.toStringz());
 		wrefresh(this.input_window);
 	}
 
@@ -382,7 +382,7 @@ class NCUI {
 					string prompt = "> ";
 					string initial_text = this.current_stop !is Stop.init ? this.current_stop.post.post.clock_ref ~ " " : "";
 
-					mvwprintw(this.input_window, 1, 0, "%.*s", prompt);
+					mvwprintw(this.input_window, 1, 0, "%s", prompt.toStringz());
 
 					if (this.current_stop !is Stop.init) {
 						foreach (int n, string name; this.tribune_names) {
@@ -487,7 +487,7 @@ class NCUI {
 		mvwprintw(window, window.maxy, x, " ");
 		mvwchgat(window, cast(int)window.maxy, x, 1, A_NORMAL, cast(short)post.tribune.ncolor(true), cast(void*)null);
 		x += 1;
-		mvwprintw(window, window.maxy, x, "%.*s", clock);
+		mvwprintw(window, window.maxy, x, "%s", clock.toStringz());
 		int clock_len = cast(int)std.utf.count(clock);
 		ulong current_attributes;
 		short pair;
@@ -502,12 +502,12 @@ class NCUI {
 
 		if (post.post.login.length > 0) {
 			int count = cast(int) post.post.login.count;
-			mvwprintw(window, window.maxy, x, "%.*s", post.post.login);
+			mvwprintw(window, window.maxy, x, "%s", post.post.login.toStringz());
 			mvwchgat(window, cast(int)window.maxy, x, count, A_BOLD, cast(short)0, cast(void*)null);
 			x += count;
 		} else {
 			int count = cast(int) post.post.short_info.count;
-			mvwprintw(window, window.maxy, x, "%.*s", post.post.short_info);
+			mvwprintw(window, window.maxy, x, "%s", post.post.short_info.toStringz());
 			mvwchgat(window, cast(int)window.maxy, x, count, this.colors["rev-white"] | A_REVERSE | A_BOLD, cast(short)0, cast(void*)null);
 			x += count;
 		}
@@ -592,7 +592,7 @@ class NCUI {
 					wattroff(window, A_UNDERLINE);
 					break;
 				default:
-					mvwprintw(window, window.maxy, x, "%.*s", sub);
+					mvwprintw(window, window.maxy, x, "%s", sub.toStringz());
 					x += length;
 					break;
 			}
