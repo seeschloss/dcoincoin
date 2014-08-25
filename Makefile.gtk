@@ -1,14 +1,14 @@
-DC=$(shell which ldc2 || which gdc || which dmd)
+DC=dmd
 PREFIX=/usr/local
 
 BINDIR=bin
 DOCDIR=doc
 SRCDIR=src
 BUILDDIR=build
-SOURCES=$(shell find $(SRCDIR) -type f -name '*.d' ! -wholename '*/gtkd/*')
-DLIBS=curl panel ncurses
+SOURCES=$(shell find $(SRCDIR) -type f -name '*.d' ! -wholename '*/*curses/*')
+DLIBS=-L-lcurl $(shell pkg-config --cflags --libs gtkd-2)
 
-all: $(BINDIR)/dcoincoin-curses
+all: $(BINDIR)/dcoincoin-gtkd
 
 $(BINDIR)/%: $(SOURCES)
 	mkdir -p $(BINDIR)
@@ -19,7 +19,7 @@ ifneq (,$(findstring gdc,$(DC)))
 		$(SOURCES)
 else
 	mkdir -p $(BUILDDIR)
-	$(DC) $(foreach lib, $(DLIBS), -L-l$(lib)) \
+	$(DC) $(DLIBS) \
 		-od$(BUILDDIR) \
 		-I$(SRCDIR) -O -release \
 		-of$@ \
