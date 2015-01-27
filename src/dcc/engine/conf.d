@@ -58,7 +58,7 @@ class Config {
 		try {
 			tags_encoded = parse!bool(tags_encoded_string);
 		} catch (Exception e) {
-			tags_encoded = false;;
+			tags_encoded = false;
 		}
 		Tribune tribune = new Tribune(name, aliases, post_url, post_format, xml_url, cookie, ua, refresh, tags_encoded);
 
