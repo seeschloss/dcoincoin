@@ -1,4 +1,4 @@
-module dcc.curses.cli;
+module dcc.curses.curses;
 
 private import std.stdio;
 private import std.string;

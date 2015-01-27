@@ -26,6 +26,11 @@ class Tribune {
 	Post[string] posts;
 	void delegate (Post)[] on_new_post;
 
+	this(string xml_url, bool tags_encoded) {
+		this.xml_url = xml_url;
+		this.tags_encoded = tags_encoded;
+	}
+
 	this(string name, string[] aliases, string post_url, string post_format, string xml_url, string cookie, string ua, int refresh, bool tags_encoded) {
 		this.name = name;
 		this.aliases = aliases;
@@ -263,6 +268,10 @@ class Post {
 
 	string clock() {
 		return format("%02s:%02s:%02s", this.time.hour, this.time.minute, this.time.second);
+	}
+
+	string tribune_time() {
+		return format("%04d%02d%02d%02d%02d%02d", this.time.year, this.time.month, this.time.day, this.time.hour, this.time.minute, this.time.second);
 	}
 
 	string clock_ref() {
