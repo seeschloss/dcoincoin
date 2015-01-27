@@ -10,6 +10,7 @@
 		{
 			"name": "curses",
 			"targetName": "dcoincoin-curses",
+			"targetPath": "bin",
 			"targetType": "executable",
 			"mainSourceFile": "src/dcc/curses/dcoincoin-curses.d",
 			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/cli/*"],
@@ -18,6 +19,7 @@
 		{
 			"name": "cli",
 			"targetName": "dcoincoin-cli",
+			"targetPath": "bin",
 			"targetType": "executable",
 			"mainSourceFile": "src/dcc/cli/dcoincoin-cli.d",
 			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/curses/*"],
@@ -26,10 +28,11 @@
 		{
 			"name": "gtkd",
 			"targetName": "dcoincoin-gtkd",
+			"targetPath": "bin",
 			"targetType": "executable",
 			"mainSourceFile": "src/dcc/gtkd/dcoincoin-gtkd.d",
 			"excludedSourceFiles": ["src/dcc/cli/*", "src/dcc/curses/*"],
-			"libs": ["curl", "gtk"],
+			"libs": ["curl"],
 			"dependencies": {"gtk-d": ">=2.4.2"}
 		}
 	]
