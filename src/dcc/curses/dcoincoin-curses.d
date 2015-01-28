@@ -126,11 +126,14 @@ class NCUI {
 	}
 
 	void redraw_all_posts() {
-		wclear(this.posts_window);
+		endwin();
+		refresh();
+		this.init_ui();
 		this.display_all_posts();
 	}
 
 	void display_all_posts() {
+		this.offset = 0;
 		NCPost[] posts;
 		foreach (NCTribune tribune; this.tribunes) {
 			posts ~= tribune.posts;
@@ -624,7 +627,7 @@ class NCUI {
 		post.lines = offset - offset_start;
 
 		foreach (int i, Stop stop; this.stops) {
-			if (stop.offset < offset_start - LINES) {
+			if (stop.offset < offset_start - LINES && i+1 < this.stops.length) {
 				this.stops = this.stops[0 .. i] ~ this.stops[i+1 .. $];
 			}
 		}
