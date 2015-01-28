@@ -133,6 +133,8 @@ class NCUI {
 	}
 
 	void display_all_posts() {
+		this.stops.length = 0;
+		this.current_stop = Stop.init;
 		this.offset = 0;
 		NCPost[] posts;
 		foreach (NCTribune tribune; this.tribunes) {
