@@ -383,10 +383,7 @@ class NCUI {
 					set_stop(this.stops[$ - 1]);
 					break;
 				case 0x0A:
-					string prompt = "> ";
 					string initial_text = this.current_stop !is Stop.init ? this.current_stop.post.post.clock_ref ~ " " : "";
-
-					mvwprintw(this.input_window, 1, 0, "%s", prompt.toStringz());
 
 					if (this.current_stop !is Stop.init) {
 						foreach (int n, string name; this.tribune_names) {
@@ -399,9 +396,9 @@ class NCUI {
 
 					int exit = 1;
 					curs_set(2);
-					string text = uput(this.input_window, 1, cast(int)prompt.count, COLS - cast(int)prompt.count, initial_text, true, exit);
+					string text = uput(this.input_window, 1, 0, COLS - 2, initial_text, "> ", exit);
 					curs_set(0);
-					if (exit == 0 && this.tribunes[this.tribune_names[this.active]].tribune.post(text)) {
+					if (exit == 10 && this.tribunes[this.tribune_names[this.active]].tribune.post(text)) {
 						this.tribunes[this.tribune_names[this.active]].fetch_posts();
 					}
 					wmove(this.input_window, 1, 0);

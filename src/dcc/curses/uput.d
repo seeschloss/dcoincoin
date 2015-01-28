@@ -7,16 +7,15 @@ private import std.conv : to;
 private import deimos.ncurses.ncurses;
 
 int _uput_default_exit;
-string uput(WINDOW* w, int y, int x, int length, string whole, bool scroll, out int exit = _uput_default_exit) {
+string uput(WINDOW* w, int y, int x, int length, string str, string prompt, out int exit = _uput_default_exit) {
 /*
 +------------------------[ WHAT YOU PUT IN ]-------------------------------+
-|UPUT(y, x, length, fg, bg, whole, scroll, exit)                           |
+|UPUT(y, x, length, fg, bg, str, exit)                                     |
 +--------------------------------------------------------------------------+
 |y -> Row where INPUT will start                                           |
 |x -> Column where INPUT will start                                        |
 |length -> Maximum length of INPUT                                         |
-|whole -> String to be edited                                              |
-|scroll -> TRUE or FALSE for horizontal scrolling on/off                   |
+|str -> String to be edited                                                |
 +---------------------[ WHAT YOU GET BACK ]--------------------------------+
 |                                                                          |
 | If UPUT is exited by the user pressing ESCAPE, then the FUNCTION will    |
@@ -38,21 +37,49 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool scroll, out 
 |                                      |    ENTER(0)  |                    |
 +--------------------------------------+-----------------------------------+
 */
-	int flag = 0, curspos = cast(int)whole.count, counter;
+	int exitflag = 0, curspos = cast(int)str.count, counter;
 	dchar ky;
-	bool exitflag=false;
-	string tempwhole = cast(string)whole.dup;
+	string original = cast(string)str.dup;
+
+	string display = str;
+	if (display.length > length) {
+		display = display[0 .. length];
+	}
+
+	int original_x = x;
+	x += prompt.count;
 
 	keypad(w, true);
 
-	do {
-		wmove(w, y,x);
+	void fill(char c) {
+		wmove(w, y, original_x);
 		for (counter=0; counter < length; counter++) {
 			waddch(w, ' ');
 		}
-		wmove (w, y,x);
-		waddstr(w, whole.toStringz());
-		wmove(w, y, x + curspos);
+		wmove(w, y, x);
+	}
+
+	void print(string str, int offset = -1) {
+		mvwprintw(w, y, original_x, "%s", prompt.toStringz());
+
+		if (offset >= 0) {
+			wmove(w, y, x + offset);
+		}
+
+		waddstr(w, str.toStringz());
+	}
+
+	void move(int offset) {
+		wmove(w, y, x + offset);
+	}
+
+	int scroll_offset = 0;
+
+	do {
+		fill(' ');
+		print(display);
+
+		move(curspos);
 
 		curs_set(2);
 		
@@ -61,86 +88,90 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool scroll, out 
 		
 		switch (ky) {
 			case KEY_LEFT:
-				if (curspos != 0) {
+				if (curspos > 0) {
 					curspos--;
+				} else if (scroll_offset > 0) {
+					scroll_offset--;
 				}
+
 				break;
 			case KEY_RIGHT:
-				if (curspos != length-1 && curspos < whole.count) {
+				if (curspos < length - 1) {
 					curspos++;
+				} else if (str.count > length && scroll_offset + length <= str.count) {
+					scroll_offset++;
 				}
 				break;
 			case KEY_HOME:
 				//case KEY_A1: =KEY_HOME on Linux so not required 
 				curspos = 0;
+				scroll_offset = 0;
 				break;
 			case KEY_END:
 				//case KEY_C1: =KEY_END on Linux so not required
-				whole = whole.stripRight();
-				curspos = cast(int)whole.count;
-				if (curspos == length) {
-					curspos--;
+				str = str.stripRight();
+				curspos = cast(int)str.count;
+				if (curspos > length) {
+					scroll_offset = curspos - length + 1;
+					curspos = length - 1;
 				}
 				break;
 			case KEY_DC: //delete key
-				if (curspos > whole.count - 1) {
+				if (curspos > str.count - 1) {
 					break;
 				}
 
-				dstring utf32 = to!dstring(whole.dup);
-				whole = to!string(utf32[0 .. curspos] ~ utf32[curspos + 1 .. $]);
+				dstring utf32 = to!dstring(str.dup);
+				str = to!string(utf32[0 .. curspos] ~ utf32[curspos + 1 .. $]);
 				break;
 			case 127:
 			case KEY_BACKSPACE:
 				if (curspos > 0) {
-					dstring utf32 = to!dstring(whole.dup);
-					whole = to!string(utf32[0 .. curspos - 1] ~ utf32[curspos .. $]);
+					dstring utf32 = to!dstring(str.dup);
+					str = to!string(utf32[0 .. curspos - 1] ~ utf32[curspos .. $]);
 					curspos--;
 				}
 				break;
 			case 10: // enter
-				flag=0;
-				exitflag=true;
+				exitflag = 10;
 				break;
 			case KEY_UP: // up-arrow
-				flag=8;
-				exitflag=true;
+				exitflag = 8;
 				break;
 			case KEY_DOWN: // down-arrow
-				flag=2;
-				exitflag=true;
+				exitflag = 2;
 				break;
 			case 9: // tab
-				flag=6;
-				exitflag=true;
+				exitflag = 6;
 				break;
 			case KEY_BTAB: // shift-tab
-				flag=4;
-				exitflag=true;
+				exitflag = 4;
 				break;
 			case 27: //esc
-				whole = cast(string)tempwhole.dup;
-				flag = 5;
-				exitflag = true;
+				str = original;
+				exitflag = 5;
 				break;
 			default:
-				if (curspos < whole.count) {
-					if (whole.count < length) {
-						dstring utf32 = to!dstring(whole.dup);
-						whole = to!string(utf32[0 .. curspos] ~ ky ~ utf32[curspos .. $]);
-					} else {
-						curspos--;
-					}
+				if (curspos < str.count) {
+					dstring utf32 = to!dstring(str.dup);
+					ulong pos = curspos + scroll_offset;
+					str = to!string(utf32[0 .. pos] ~ ky ~ utf32[pos .. $]);
 				} else {
-					whole ~= ky;
+					str ~= ky;
 				}
 
-				if (curspos < length-1) {
+				if (curspos >= length - 1) {
+					scroll_offset++;
+				} else {
 					curspos++;
 				}
 		}
+
+		dstring utf32 = to!dstring(str.dup);
+		auto end = utf32.count < scroll_offset + length - 1 ? utf32.count : scroll_offset + length - 1;
+		display = to!string(utf32[scroll_offset .. end]);
 	} while (!exitflag);
 
-	exit = flag;
-	return whole.stripRight();
+	exit = exitflag;
+	return str.stripRight();
 }
