@@ -17,6 +17,7 @@ private import gtk.MenuItem;
 private import gtk.AccelGroup;
 private import gtk.Paned;
 private import gtk.Statusbar;
+private import gtk.ScrolledWindow;
 private import gtk.MessageDialog;
 private import gtk.Box;
 private import gtk.TreeView;
@@ -30,6 +31,8 @@ private import gtkc.gtktypes;
 
 private import dcc.engine.conf;
 private import dcc.engine.tribune;
+private import dcc.gtkd.tribuneviewer;
+private import dcc.gtkd.post;
 
 extern (C) { char* setlocale(int category, const char* locale); }
 
@@ -81,6 +84,8 @@ class GtkUI : MainWindow {
 	ulong active = 0;
 	string[] tribune_names;
 
+	TribuneViewer viewer;
+
 	this(string config_file) {
 		super("DCoinCoin");
 
@@ -99,10 +104,12 @@ class GtkUI : MainWindow {
 
 		this.setup();
 		this.showAll();
+
+		this.displayAllPosts();
 	}
 
 	void setup() {
-		this.setBorderWidth(10);
+		this.viewer = this.makeTribuneViewer();
 
 		Box mainBox = new Box(GtkOrientation.VERTICAL, 0);
 		mainBox.packStart(makeMenuBar(), false, false, 0);
@@ -110,7 +117,10 @@ class GtkUI : MainWindow {
 		Paned paned = new Paned(GtkOrientation.HORIZONTAL);
 
 		paned.add1(this.makeTribunesList());
-		paned.add2(new Label("Add2"));
+		ScrolledWindow scrolledWindow = new ScrolledWindow(this.viewer);
+		scrolledWindow.setPolicy(GtkPolicyType.NEVER, GtkPolicyType.ALWAYS);
+		scrolledWindow.setShadowType(GtkShadowType.IN);
+		paned.add2(scrolledWindow);
 
 		mainBox.packStart(paned, true, true, 0);
 
@@ -120,7 +130,29 @@ class GtkUI : MainWindow {
 		this.add(mainBox);
 	}
 
-	TreeView makeTribunesList() {
+	void displayAllPosts() {
+		GtkPost[] posts;
+		writeln("Posts: ", posts.length);
+		foreach (GtkTribune tribune; this.tribunes) {
+			posts ~= tribune.posts;
+		}
+		writeln("Posts: ", posts.length);
+		posts.sort!((a, b) {
+			if (a.post.timestamp == b.post.timestamp) {
+				return a.post.post_id < b.post.post_id;
+			} else {
+				return a.post.timestamp < b.post.timestamp;
+			}
+		});
+		writeln("Posts: ", posts.length);
+
+		foreach (GtkPost post; posts) {
+			writeln("Rendering post: ", post.post.message);
+			this.viewer.renderPost(post);
+		}
+	}
+
+	Box makeTribunesList() {
 		ListStore listStore = new ListStore([GType.STRING]);
 
 		TreeIter iterTop = listStore.createIter();
@@ -147,7 +179,15 @@ class GtkUI : MainWindow {
 		column.setSortColumnId(0);
 		column.setSortIndicator(false);
 
-		return tribunesList;
+		Box box = new Box(GtkOrientation.VERTICAL, 0);
+		box.packStart(new TreeView(new ListStore([GType.STRING])), 1, 1, 0);
+		box.packStart(tribunesList, 0, 0, 0);
+
+		return box;
+	}
+
+	TribuneViewer makeTribuneViewer() {
+		return new TribuneViewer();
 	}
 
 	MenuBar makeMenuBar() {
@@ -186,14 +226,21 @@ class GtkUI : MainWindow {
 class GtkTribune {
 	Tribune tribune;
 	GtkUI ui;
-	//GtkPost[] posts;
+	GtkPost[] posts;
 
 	bool updating;
 
 	this(GtkUI ui, Tribune tribune) {
 		this.ui = ui;
 		this.tribune = tribune;
+
+		this.tribune.on_new_post ~= &this.on_new_post;
 	}
+
+	void on_new_post(Post post) {
+		GtkPost p = new GtkPost(post);
+		this.posts ~= p;
+	};
 
 	void fetch_posts(void delegate() callback = null) {
 		while (this.updating) {
