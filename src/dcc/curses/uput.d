@@ -7,16 +7,16 @@ private import std.conv : to;
 private import deimos.ncurses.ncurses;
 
 int _uput_default_exit;
-string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int exit = _uput_default_exit) {
+string uput(WINDOW* w, int y, int x, int length, string whole, bool scroll, out int exit = _uput_default_exit) {
 /*
 +------------------------[ WHAT YOU PUT IN ]-------------------------------+
-|UPUT(y, x, length, fg, bg, whole, ins, permitted)                        |
+|UPUT(y, x, length, fg, bg, whole, scroll, exit)                           |
 +--------------------------------------------------------------------------+
 |y -> Row where INPUT will start                                           |
 |x -> Column where INPUT will start                                        |
 |length -> Maximum length of INPUT                                         |
 |whole -> String to be edited                                              |
-|ins -> TRUE or FALSE for INSERT on/off                                    |
+|scroll -> TRUE or FALSE for horizontal scrolling on/off                   |
 +---------------------[ WHAT YOU GET BACK ]--------------------------------+
 |                                                                          |
 | If UPUT is exited by the user pressing ESCAPE, then the FUNCTION will    |
@@ -42,7 +42,7 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 	dchar ky;
 	bool exitflag=false;
 	string tempwhole = cast(string)whole.dup;
-	
+
 	keypad(w, true);
 
 	do {
@@ -54,11 +54,7 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 		waddstr(w, whole.toStringz());
 		wmove(w, y, x + curspos);
 
-		if (ins) {
-			curs_set(2);
-		} else {
-			curs_set(1);
-		}
+		curs_set(2);
 		
 		wrefresh(w);
 		wget_wch(w, &ky);
@@ -84,14 +80,6 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 				curspos = cast(int)whole.count;
 				if (curspos == length) {
 					curspos--;
-				}
-				break;
-			case KEY_IC: //insert key
-				ins = !ins;
-				if (ins) {
-					curs_set(2);
-				} else {
-					curs_set(1);
 				}
 				break;
 			case KEY_DC: //delete key
@@ -136,24 +124,15 @@ string uput(WINDOW* w, int y, int x, int length, string whole, bool ins, out int
 				exitflag = true;
 				break;
 			default:
-				if (ins) {
-					if (curspos < whole.count) {
-						if (whole.count < length) {
-							dstring utf32 = to!dstring(whole.dup);
-							whole = to!string(utf32[0 .. curspos] ~ ky ~ utf32[curspos .. $]);
-						} else {
-							curspos--;
-						}
-					} else {
-						whole ~= ky;
-					}
-				} else {
-					if (curspos < whole.count) {
+				if (curspos < whole.count) {
+					if (whole.count < length) {
 						dstring utf32 = to!dstring(whole.dup);
 						whole = to!string(utf32[0 .. curspos] ~ ky ~ utf32[curspos .. $]);
 					} else {
-						whole ~= ky;
+						curspos--;
 					}
+				} else {
+					whole ~= ky;
 				}
 
 				if (curspos < length-1) {
