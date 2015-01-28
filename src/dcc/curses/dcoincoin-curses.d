@@ -626,6 +626,12 @@ class NCUI {
 
 		post.lines = offset - offset_start;
 
+		foreach (int i, Stop stop; this.stops) {
+			if (stop.offset < offset_start - LINES) {
+				this.stops = this.stops[0 .. i] ~ this.stops[i+1 .. $];
+			}
+		}
+
 		return offset;
 	}
 
@@ -703,6 +709,11 @@ class NCTribune {
 	void on_new_post(Post post) {
 		NCPost p = new NCPost(this, post);
 		this.posts ~= p;
+
+		if (this.posts.length > LINES) {
+			this.posts = this.posts[1 .. $];
+		}
+
 		synchronized {
 			this.ui.display_post(this.ui.posts_window, p);
 		}
