@@ -168,7 +168,7 @@ string uput(WINDOW* w, int y, int x, int length, string str, string prompt, out 
 		}
 
 		dstring utf32 = to!dstring(str.dup);
-		auto end = utf32.count < scroll_offset + length - 1 ? utf32.count : scroll_offset + length - 1;
+		auto end = utf32.length < scroll_offset + length - 1 ? utf32.length : scroll_offset + length - 1;
 		display = to!string(utf32[scroll_offset .. end]);
 	} while (!exitflag);
 
