@@ -280,6 +280,10 @@ class NCUI {
 	}
 
 	void highlight_stop(Stop stop) {
+		if (stop == Stop.init) {
+			return;
+		}
+
 		int line = this.posts_window.maxy - (this.offset - stop.offset);
 		wmove(this.posts_window, line, stop.start);
 		wchgat(this.posts_window, stop.length, A_REVERSE, 0, null);
@@ -445,6 +449,10 @@ class NCUI {
 			return false;
 		}
 
+		if (this.current_stop == this.stops[$ - 1]) {
+			return false;
+		}
+
 		Stop new_stop;
 		Stop old_stop = this.current_stop;
 		if (this.current_stop is Stop.init) foreach (Stop stop; this.stops) {
@@ -466,7 +474,7 @@ class NCUI {
 			this.set_stop(new_stop);
 		}
 
-		return new_stop != this.stops[$];
+		return true;
 	}
 
 	void set_stop(Stop stop) {
