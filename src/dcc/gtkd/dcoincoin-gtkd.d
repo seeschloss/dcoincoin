@@ -150,6 +150,8 @@ class GtkUI : MainWindow {
 			writeln("Rendering post: ", post.post.message);
 			this.viewer.renderPost(post);
 		}
+
+		this.viewer.scrollMarkOnscreen(posts[$-1].end);
 	}
 
 	Box makeTribunesList() {

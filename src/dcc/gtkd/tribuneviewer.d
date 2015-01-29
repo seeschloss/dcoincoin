@@ -43,12 +43,16 @@ class TribuneViewer : TextView {
 			buffer.insert (iter, "\n");
 		}
 
+		post.begin = buffer.createMark(post.post.post_id, iter, true);
+
 		buffer.insertWithTagsByName(iter, post.post.clock, ["mainclock"]);
 		buffer.insert(iter, " ");
-		buffer.insertWithTagsByName(iter, post.post.login, ["login"]);
+		if (post.post.login) {
+			buffer.insertWithTagsByName(iter, post.post.login, ["login"]);
+		} else {
+			buffer.insertWithTagsByName(iter, post.post.short_info, ["login"]);
+		}
 		buffer.insert(iter, " ");
-
-		TextMark mark = buffer.createMark(post.post.post_id, iter, true);
 
 		foreach (GtkPostSegment segment; segments) {
 			TextMark startMark = buffer.createMark("start", iter, true);
@@ -68,14 +72,14 @@ class TribuneViewer : TextView {
 			}
 		}
 
-		TextMark endMark = buffer.createMark("end-" ~ post.post.post_id, iter, true);
+		post.end = buffer.createMark("end-" ~ post.post.post_id, iter, true);
 
 		if (!this.begin) {
-			this.begin = mark;
+			this.begin = post.begin;
 		}
 
 		if (!this.end) {
-			this.end = endMark;
+			this.end = post.end;
 		}
 	}
 }

@@ -2,6 +2,8 @@ module dcc.gtkd.post;
 
 private import std.string;
 
+private import gtk.TextMark;
+
 private import dcc.engine.tribune;
 
 struct GtkPostSegmentContext {
@@ -22,6 +24,7 @@ struct GtkPostSegment {
 
 class GtkPost {
 	Post post;
+	TextMark begin, end;
 
 	this(Post post) {
 		this.post = post;
