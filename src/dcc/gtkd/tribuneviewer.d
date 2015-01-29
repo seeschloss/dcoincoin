@@ -1,5 +1,7 @@
 module dcc.gtkd.tribuneviewer;
 
+private import std.stdio;
+
 private import gtk.TextView;
 private import gtk.TextBuffer;
 private import gtk.TextIter;
@@ -9,6 +11,7 @@ private import gdk.Color;
 
 private import dcc.engine.tribune;
 private import dcc.gtkd.post;
+private import dcc.gtkd.main;
 
 class TribuneViewer : TextView {
 	private TextMark begin, end;
@@ -29,6 +32,19 @@ class TribuneViewer : TextView {
 		buffer.createTag("i", "style"        , PangoStyle.ITALIC);
 		buffer.createTag("u", "underline"    , PangoUnderline.SINGLE);
 		buffer.createTag("s", "strikethrough", true);
+
+		TextIter iter = new TextIter();
+		buffer.getEndIter(iter);
+		buffer.createMark("end", iter, false);
+	}
+
+	void registerTribune(GtkTribune gtkTribune) {
+		gtkTribune.tag = "tribune" ~ gtkTribune.tribune.name;
+		this.getBuffer().createTag(gtkTribune.tag, "paragraph-background", gtkTribune.color);
+	}
+
+	void scrollToEnd() {
+		this.scrollMarkOnscreen(this.getBuffer().getMark("end"));
 	}
 
 	void renderPost(GtkPost post) {
@@ -73,6 +89,12 @@ class TribuneViewer : TextView {
 		}
 
 		post.end = buffer.createMark("end-" ~ post.post.post_id, iter, true);
+
+		TextIter postStartIter = new TextIter();
+		buffer.getIterAtMark(postStartIter, post.begin);
+		TextIter postEndIter = new TextIter();
+		buffer.getIterAtMark(postEndIter, post.end);
+		buffer.applyTagByName(post.tribune.tag, postStartIter, postEndIter);
 
 		if (!this.begin) {
 			this.begin = post.begin;

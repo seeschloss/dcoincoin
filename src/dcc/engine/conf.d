@@ -14,6 +14,8 @@ class Config {
 	int default_refresh = 30;
 	string[] default_ignorelist;
 
+	string default_color = "white";
+
 	this(string file) {
 		if (!exists(file)) {
 			std.file.write(file, []);
@@ -60,7 +62,11 @@ class Config {
 		} catch (Exception e) {
 			tags_encoded = false;
 		}
-		Tribune tribune = new Tribune(name, aliases, post_url, post_format, xml_url, cookie, ua, refresh, tags_encoded);
+		string color = section.getKey("color");
+		if (!color.length) {
+			color = this.default_color;
+		}
+		Tribune tribune = new Tribune(name, aliases, post_url, post_format, xml_url, cookie, ua, refresh, tags_encoded, color);
 
 		return tribune;
 	}

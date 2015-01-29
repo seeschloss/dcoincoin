@@ -22,6 +22,7 @@ class Tribune {
 	string ua;
 	int refresh;
 	bool tags_encoded;
+	string color;
 
 	Post[string] posts;
 	void delegate (Post)[] on_new_post;
@@ -31,7 +32,7 @@ class Tribune {
 		this.tags_encoded = tags_encoded;
 	}
 
-	this(string name, string[] aliases, string post_url, string post_format, string xml_url, string cookie, string ua, int refresh, bool tags_encoded) {
+	this(string name, string[] aliases, string post_url, string post_format, string xml_url, string cookie, string ua, int refresh, bool tags_encoded, string color) {
 		this.name = name;
 		this.aliases = aliases;
 		this.post_url = post_url;
@@ -41,6 +42,7 @@ class Tribune {
 		this.ua = ua;
 		this.refresh = refresh;
 		this.tags_encoded = tags_encoded;
+		this.color = color;
 	}
 
 	bool fetch_posts() {
