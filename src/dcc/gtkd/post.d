@@ -1,6 +1,7 @@
 module dcc.gtkd.post;
 
 private import std.string;
+private import std.stdio;
 
 private import gtk.TextMark;
 
@@ -27,15 +28,32 @@ class GtkPost {
 	Post post;
 	TextMark begin, end;
 	GtkTribune tribune;
+	GtkPostSegment[] _segments;
+	GtkPostSegment[int] segmentIndices;
 
 	this(GtkTribune tribune, Post post) {
 		this.tribune = tribune;
 		this.post = post;
 	}
 
-	GtkPostSegment[] segmentize() {
+	GtkPostSegment getSegmentAt(int offset) {
+		foreach (int position, GtkPostSegment segment; this.segmentIndices) {
+			if (position >= offset && position < segment.text.length + offset) {
+				return segment;
+			}
+		}
+
+		return GtkPostSegment.init;
+	}
+
+	GtkPostSegment[] segments() {
+		if (this._segments.length > 0) {
+			return this._segments;
+		}
+
 		string[] tokens = this.tokenize();
-		GtkPostSegment[] segments;
+
+		int offset = 0;
 
 		GtkPostSegmentContext context;
 		foreach (int i, string sub; tokens) {
@@ -82,7 +100,8 @@ class GtkPost {
 			segment.context = context;
 
 			if (segment.text) {
-				segments ~= segment;
+				this._segments ~= segment;
+				offset += segment.text.count;
 			}
 
 			if (context.clock) {
@@ -90,7 +109,8 @@ class GtkPost {
 			}
 		}
 
-		return segments;
+
+		return this._segments;
 	}
 
 	// This is the same function as for the curses interface, for now...

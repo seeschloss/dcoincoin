@@ -23,16 +23,22 @@ private import gtk.Statusbar;
 private import gtk.ScrolledWindow;
 private import gtk.MessageDialog;
 private import gtk.Box;
+private import gtk.TextView;
 private import gtk.TreeView;
 private import gtk.TreeViewColumn;
 private import gtk.TreeIter;
 private import gtk.TreeSelection;
+private import gtk.TreeModelIF;
+private import gtk.TreePath;
 private import gtk.CellRendererText;
 private import gtk.ListStore;
 private import gtk.Widget;
 private import gtk.CellRenderer;
 
+private import gdk.Keymap;
+private import gdk.Event;
 private import gdk.Color;
+private import gdk.RGBA;
 
 private import gtkc.gtk;
 private import gtkc.gtktypes;
@@ -96,8 +102,10 @@ class GtkUI : MainWindow {
 	GtkTribune[string] tribunes;
 	ulong active = 0;
 	string[] tribune_names;
+	GtkTribune currentTribune;
 
 	TribuneViewer viewer;
+	TextView input;
 
 	this(string config_file) {
 		super("DCoinCoin");
@@ -110,13 +118,18 @@ class GtkUI : MainWindow {
 			GtkTribune gtkTribune = new GtkTribune(this, tribune);
 			this.tribunes[tribune.name] = gtkTribune;
 			this.tribune_names ~= tribune.name;
-
-			this.tribunes[tribune.name].fetch_posts({
-				stderr.writeln("Posts fetched");
-			});
+			this.currentTribune = gtkTribune;
 		}
 
 		this.setup();
+
+		foreach (GtkTribune tribune ; this.tribunes) {
+			tribune.fetch_posts({
+				stderr.writeln("Posts fetched");
+			});
+
+			tribune.on_new_post ~= &this.addPost;
+		}
 	}
 
 	void setup() {
@@ -130,15 +143,56 @@ class GtkUI : MainWindow {
 		paned.add1(this.makeTribunesList());
 		ScrolledWindow scrolledWindow = new ScrolledWindow(this.viewer);
 		scrolledWindow.setPolicy(GtkPolicyType.NEVER, GtkPolicyType.ALWAYS);
-		scrolledWindow.setShadowType(GtkShadowType.IN);
 		paned.add2(scrolledWindow);
 
 		mainBox.packStart(paned, true, true, 0);
+
+		this.input = makeTribuneInput();
+		mainBox.packStart(input, false, false, 0);
 
 		Statusbar statusbar = new Statusbar();
 		mainBox.packStart(statusbar, false, false, 0);
 
 		this.add(mainBox);
+	}
+
+	void post(string text, void delegate(bool) success) {
+		bool result = this.currentTribune.tribune.post(text);
+		success(result);
+		this.currentTribune.fetch_posts();
+	}
+
+	TextView makeTribuneInput() {
+		TextView input = new TextView();
+		input.setEditable(true);
+		input.setWrapMode(WrapMode.CHAR);
+
+		input.addOnKeyPress((Event event, Widget source) {
+			input.overrideBackgroundColor(GtkStateFlags.NORMAL, new RGBA(1, 1, 1, 1));
+			GdkEventKey* key = event.key();
+			//writeln("Key: ", key.keyval, " - ", Keymap.gdkKeyvalName(key.keyval));
+
+			if (Keymap.gdkKeyvalName(key.keyval) == "Return") {
+				string text = input.getBuffer().getText();
+				this.post(text, (bool success) {
+					if (success) {
+						input.getBuffer().setText("");
+					} else {
+						input.overrideBackgroundColor(GtkStateFlags.NORMAL, new RGBA(1, 0.7, 0.7, 1));
+					}
+				});
+				return true;
+			}
+
+			return false;
+		});
+
+		return input;
+	}
+
+	void addPost(GtkPost post) {
+		this.viewer.renderPost(post);
+		this.viewer.scrollToEnd();
 	}
 
 	void displayAllPosts() {
@@ -160,13 +214,14 @@ class GtkUI : MainWindow {
 
 		// Why do I need that?
 		new Timeout(100, {
+			this.viewer.grabFocus();
 			this.viewer.scrollToEnd();
 			return false;
 		}, false);
 	}
 
 	Box makeTribunesList() {
-		ListStore listStore = new ListStore([GType.STRING, GType.STRING]);
+		ListStore listStore = new ListStore([GType.STRING, GType.STRING, GType.STRING, GType.STRING, GType.INT]);
 
 		TreeIter iterTop = listStore.createIter();
 		
@@ -175,28 +230,60 @@ class GtkUI : MainWindow {
 
 		foreach (GtkTribune tribune; this.tribunes) {
 			listStore.append(iterTop);
-			listStore.set(iterTop, [0, 1], [tribune.tribune.name, tribune.color]);
+			listStore.set(iterTop, [0, 1, 2, 3], [tribune.tribune.name, tribune.color, "black", tribune.color]);
+			listStore.setValue(iterTop, 4, 400);
+
+			tribune.listStore = listStore;
+			tribune.iter = iterTop.copy(iterTop);
 		}
 
 		TreeView tribunesList = new TreeView(listStore);
 		tribunesList.setHeadersVisible(false);
 		tribunesList.setRulesHint(false);
+		tribunesList.setActivateOnSingleClick(false);
 
 		TreeSelection ts = tribunesList.getSelection();
-		ts.setMode(SelectionMode.MULTIPLE);
+		ts.setMode(SelectionMode.NONE);
 
-		TreeViewColumn column = new TribuneTreeViewColumn("Tribune", new CellRendererText(), "text", 0);
+		tribunesList.addOnCursorChanged((TreeView treeView) {
+			TreeModelIF treeModel = tribunesList.getModel();
+			TreePath currentPath;
+			TreeViewColumn currentColumn;
+			tribunesList.getCursor(currentPath, currentColumn);
+
+			TreeIter iter = new TreeIter();
+			treeModel.getIterFirst(iter);
+			do {
+				listStore.setValue(iter, 4, 400);
+			} while (treeModel.iterNext(iter));
+
+			iter = new TreeIter();
+			treeModel.getIter(iter, currentPath);
+			listStore.setValue(iter, 4, 1000);
+
+			string name = iter.getValueString(0);
+			if (name in this.tribunes) {
+				this.setCurrentTribune(this.tribunes[name]);
+			}
+		});
+
+		TreeViewColumn column = new TribuneTreeViewColumn("Tribune", new CellRendererText());
 		tribunesList.appendColumn(column);
 		column.setResizable(false);
-		column.setReorderable(true);
-		column.setSortColumnId(0);
-		column.setSortIndicator(false);
+
+		TreeViewColumn column2 = new TribuneEnabledTreeViewColumn("Enabled", new CellRendererText());
+		tribunesList.appendColumn(column2);
+		column.setResizable(false);
 
 		Box box = new Box(GtkOrientation.VERTICAL, 0);
 		box.packStart(new TreeView(new ListStore([GType.STRING])), 1, 1, 0);
 		box.packStart(tribunesList, 0, 0, 0);
 
 		return box;
+	}
+
+	void setCurrentTribune(GtkTribune tribune) {
+		this.currentTribune = tribune;
 	}
 
 	TribuneViewer makeTribuneViewer() {
@@ -243,21 +330,43 @@ class GtkUI : MainWindow {
 }
 
 class TribuneTreeViewColumn : TreeViewColumn {
-	this(string header, CellRenderer renderer, string type, int column) {
+	this(string header, CellRenderer renderer) {
 		auto p = gtk_tree_view_column_new_with_attributes(
 		Str.toStringz(header),
 		renderer.getCellRendererStruct(),
-		Str.toStringz(type),
-		column,
+		Str.toStringz("text"),
+		0,
 		Str.toStringz("cell-background"),
 		1,
+		Str.toStringz("foreground"),
+		2,
+		Str.toStringz("weight"),
+		4,
 		null);
 		
 		if(p is null)
 		{
 			throw new ConstructionException("null returned by gtk_tree_view_column_new_with_attributes");
 		}
+
+		super(p);
+	}
+}
+
+class TribuneEnabledTreeViewColumn : TreeViewColumn {
+	this(string header, CellRenderer renderer) {
+		auto p = gtk_tree_view_column_new_with_attributes(
+		Str.toStringz(header),
+		renderer.getCellRendererStruct(),
+		Str.toStringz("cell-background"),
+		3,
+		null);
 		
+		if(p is null)
+		{
+			throw new ConstructionException("null returned by gtk_tree_view_column_new_with_attributes");
+		}
+
 		super(p);
 	}
 }
@@ -268,23 +377,30 @@ class GtkTribune {
 	GtkPost[] posts;
 	string tag;
 
+	void delegate(GtkPost)[] on_new_post;
+
 	string color;
 
 	bool updating;
+
+	ListStore listStore;
+	TreeIter iter;
 
 	this(GtkUI ui, Tribune tribune) {
 		this.ui = ui;
 		this.tribune = tribune;
 
-		this.tribune.on_new_post ~= &this.on_new_post;
+		this.tribune.on_new_post ~= (Post post) {
+			GtkPost p = new GtkPost(this, post);
+			this.posts ~= p;
+
+			foreach (void delegate(GtkPost) f ; this.on_new_post) {
+				f(p);
+			}
+		};
 
 		this.color = tribune.color;
 	}
-
-	void on_new_post(Post post) {
-		GtkPost p = new GtkPost(this, post);
-		this.posts ~= p;
-	};
 
 	void fetch_posts(void delegate() callback = null) {
 		this.updating = true;

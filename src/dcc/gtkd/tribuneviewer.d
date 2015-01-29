@@ -6,8 +6,14 @@ private import gtk.TextView;
 private import gtk.TextBuffer;
 private import gtk.TextIter;
 private import gtk.TextMark;
+private import gtk.Widget;
+
 private import gtkc.gtktypes;
+
 private import gdk.Color;
+private import gdk.Event;
+
+private import glib.ListSG;
 
 private import dcc.engine.tribune;
 private import dcc.gtkd.post;
@@ -15,6 +21,8 @@ private import dcc.gtkd.main;
 
 class TribuneViewer : TextView {
 	private TextMark begin, end;
+
+	private GtkPost[string] posts;
 
 	this() {
 		this.setEditable(false);
@@ -26,16 +34,57 @@ class TribuneViewer : TextView {
 
 		buffer.createTag("mainclock", "foreground-gdk", new Color(50, 50, 50));
 		buffer.createTag("login", "weight", PangoWeight.BOLD, "foreground-gdk", new Color(0, 0, 100));
-		buffer.createTag("clock", "weight", PangoWeight.BOLD, "underline", PangoUnderline.SINGLE, "foreground-gdk", new Color(0, 0, 100));
+		buffer.createTag("clock", "weight", PangoWeight.BOLD, "foreground-gdk", new Color(0, 0, 100));
 
 		buffer.createTag("b", "weight"       , PangoWeight.BOLD);
 		buffer.createTag("i", "style"        , PangoStyle.ITALIC);
 		buffer.createTag("u", "underline"    , PangoUnderline.SINGLE);
-		buffer.createTag("s", "strikethrough", true);
+		buffer.createTag("s", "strikethrough", 1);
 
 		TextIter iter = new TextIter();
 		buffer.getEndIter(iter);
 		buffer.createMark("end", iter, false);
+
+		this.addOnMotionNotify(&this.onMotion);
+	}
+
+	bool onMotion(Event event, Widget viewer) {
+		int bufferX, bufferY;
+
+		this.windowToBufferCoords(GtkTextWindowType.WIDGET, cast(int)event.motion().x, cast(int)event.motion().y, bufferX, bufferY);
+
+		TextIter position = new TextIter();
+		this.getIterAtLocation(position, bufferX, bufferY);
+
+		GtkPost post = this.getPostAtIter(position);
+		if (post) {
+			writeln("Post: ", post.post.message);
+			
+			GtkPostSegment segment = post.getSegmentAt(position.getLineOffset());
+			if (segment.text.length) {
+				writeln("Segment: ", segment.text);
+			}
+		}
+
+		return true;
+	}
+
+	public GtkPost getPostAtIter(TextIter position) {
+		TextIter iter = new TextIter ();
+
+		this.getBuffer().getIterAtLine(iter, position.getLine());
+
+		ListSG marks = iter.getMarks();
+
+		for (int i = 0 ; i < marks.length() ; i++) {
+			TextMark mark = new TextMark (cast (GtkTextMark*) marks.nthData(i));
+
+			if (mark.getName() in this.posts) {
+				return this.posts[mark.getName()];
+			}
+		}
+
+		return null;
 	}
 
 	void registerTribune(GtkTribune gtkTribune) {
@@ -48,8 +97,7 @@ class TribuneViewer : TextView {
 	}
 
 	void renderPost(GtkPost post) {
-		string[] tokens = post.tokenize();
-		GtkPostSegment[] segments = post.segmentize();
+		GtkPostSegment[] segments = post.segments();
 
 		TextBuffer buffer = this.getBuffer();
 		TextIter iter = new TextIter();
@@ -71,6 +119,8 @@ class TribuneViewer : TextView {
 		buffer.insert(iter, " ");
 
 		foreach (GtkPostSegment segment; segments) {
+			post.segmentIndices[iter.getLineOffset()] = segment;
+
 			TextMark startMark = buffer.createMark("start", iter, true);
 			TextMark endMark = buffer.createMark("start", iter, false);
 
@@ -81,6 +131,18 @@ class TribuneViewer : TextView {
 
 			if (segment.context.bold) {
 				buffer.applyTagByName("b", startIter, iter);
+			}
+
+			if (segment.context.italic) {
+				buffer.applyTagByName("i", startIter, iter);
+			}
+
+			if (segment.context.underline) {
+				buffer.applyTagByName("u", startIter, iter);
+			}
+
+			if (segment.context.strike) {
+				buffer.applyTagByName("s", startIter, iter);
 			}
 
 			if (segment.context.clock) {
@@ -95,6 +157,8 @@ class TribuneViewer : TextView {
 		TextIter postEndIter = new TextIter();
 		buffer.getIterAtMark(postEndIter, post.end);
 		buffer.applyTagByName(post.tribune.tag, postStartIter, postEndIter);
+
+		this.posts[post.begin.getName()] = post;
 
 		if (!this.begin) {
 			this.begin = post.begin;
