@@ -106,6 +106,8 @@ class GtkUI : MainWindow {
 
 	TribuneViewer viewer;
 	TextView input;
+	TreeView tribunesList;
+	ListStore tribunesListStore;
 
 	this(string config_file) {
 		super("DCoinCoin");
@@ -222,6 +224,7 @@ class GtkUI : MainWindow {
 
 	Box makeTribunesList() {
 		ListStore listStore = new ListStore([GType.STRING, GType.STRING, GType.STRING, GType.STRING, GType.INT]);
+		this.tribunesListStore = listStore;
 
 		TreeIter iterTop = listStore.createIter();
 		
@@ -241,6 +244,8 @@ class GtkUI : MainWindow {
 		tribunesList.setHeadersVisible(false);
 		tribunesList.setRulesHint(false);
 		tribunesList.setActivateOnSingleClick(false);
+
+		this.tribunesList = tribunesList;
 
 		TreeSelection ts = tribunesList.getSelection();
 		ts.setMode(SelectionMode.NONE);
@@ -284,6 +289,23 @@ class GtkUI : MainWindow {
 
 	void setCurrentTribune(GtkTribune tribune) {
 		this.currentTribune = tribune;
+
+		TreeModelIF treeModel = this.tribunesList.getModel();
+		TreePath currentPath;
+		TreeViewColumn currentColumn;
+		this.tribunesList.getCursor(currentPath, currentColumn);
+
+		TreeIter iter = new TreeIter();
+		treeModel.getIterFirst(iter);
+		do {
+			string name = this.tribunesListStore.getValue(iter, 0).getString();
+
+			if (name == this.currentTribune.tribune.name) {
+				this.tribunesListStore.setValue(iter, 4, 1000);
+			} else {
+				this.tribunesListStore.setValue(iter, 4, 400);
+			}
+		} while (treeModel.iterNext(iter));
 	}
 
 	TribuneViewer makeTribuneViewer() {
@@ -293,8 +315,29 @@ class GtkUI : MainWindow {
 			viewer.registerTribune(gtkTribune);
 		}
 
+		viewer.postClockClick.connect(&onPostClockClick);
+		viewer.postLoginClick.connect(&onPostLoginClick);
+		viewer.postSegmentClick.connect(&onPostSegmentClick);
 
 		return viewer;
+	}
+
+	void onPostClockClick(GtkPost post) {
+		writeln("Clicked on clock: ", post.post.timestamp);
+		this.setCurrentTribune(post.tribune);
+		this.input.insertText(post.post.clock ~ " ");
+		this.input.grabFocus();
+	}
+
+	void onPostLoginClick(GtkPost post) {
+		writeln("Clicked on login: ", post.post.timestamp);
+		this.setCurrentTribune(post.tribune);
+		this.input.insertText(post.post.login ~ "< ");
+		this.input.grabFocus();
+	}
+
+	void onPostSegmentClick(GtkPost post, GtkPostSegment segment) {
+		writeln("Clicked on segment: ", segment.text);
 	}
 
 	MenuBar makeMenuBar() {

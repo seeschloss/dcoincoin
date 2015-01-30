@@ -1,12 +1,14 @@
 module dcc.gtkd.tribuneviewer;
 
 private import std.stdio;
+private import std.signals;
 
 private import gtk.TextView;
 private import gtk.TextBuffer;
 private import gtk.TextIter;
 private import gtk.TextMark;
 private import gtk.Widget;
+private import gtk.Window;
 
 private import gtkc.gtktypes;
 
@@ -16,6 +18,8 @@ private import gdk.Event;
 
 private import glib.ListSG;
 
+private import gobject.Signals;
+
 private import dcc.engine.tribune;
 private import dcc.gtkd.post;
 private import dcc.gtkd.main;
@@ -24,6 +28,15 @@ class TribuneViewer : TextView {
 	private TextMark begin, end;
 
 	private GtkPost[string] posts;
+
+	mixin Signal!(GtkPost) postClockClick;
+	mixin Signal!(GtkPost) postLoginClick;
+	mixin Signal!(GtkPost, GtkPostSegment) postSegmentClick;
+
+	mixin Signal!(GtkPost) postHover;
+	mixin Signal!(GtkPost) postClockHover;
+	mixin Signal!(GtkPost) postLoginHover;
+	mixin Signal!(GtkPost, GtkPostSegment) postSegmentHover;
 
 	this() {
 		this.setEditable(false);
@@ -62,15 +75,13 @@ class TribuneViewer : TextView {
 		if (post) {
 			int offset = position.getLineOffset();
 			if (offset <= 8) {
-				writeln("Clock");
+				this.postClockClick.emit(post);
 			} else {
 				GtkPostSegment segment = post.getSegmentAt(offset);
 				if (segment.text.length) {
-					if (segment.context.clock) {
-						writeln("Segment: ", segment.text);
-					}
+					this.postSegmentClick.emit(post, segment);
 				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
-					writeln("Login");
+					this.postLoginClick.emit(post);
 				}
 			}
 		}
@@ -87,23 +98,18 @@ class TribuneViewer : TextView {
 		this.getIterAtLocation(position, bufferX, bufferY);
 
 		GtkPost post = this.getPostAtIter(position);
-		
-		GdkCursorType cursor = GdkCursorType.ARROW;
-
 		if (post) {
+			this.postHover.emit(post);
+
 			int offset = position.getLineOffset();
 			if (offset <= 8) {
-				//writeln("Clock");
-				cursor = GdkCursorType.HAND1;
+				this.postClockHover.emit(post);
 			} else {
 				GtkPostSegment segment = post.getSegmentAt(offset);
 				if (segment.text.length) {
-					if (segment.context.clock) {
-						//writeln("Segment: ", segment.text);
-						cursor = GdkCursorType.HAND1;
-					}
+					this.postSegmentHover.emit(post, segment);
 				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
-					//writeln("Login");
+					this.postLoginHover.emit(post);
 				}
 			}
 		}
