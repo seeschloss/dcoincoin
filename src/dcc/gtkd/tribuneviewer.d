@@ -11,6 +11,7 @@ private import gtk.Widget;
 private import gtkc.gtktypes;
 
 private import gdk.Color;
+private import gdk.Cursor;
 private import gdk.Event;
 
 private import glib.ListSG;
@@ -45,7 +46,36 @@ class TribuneViewer : TextView {
 		buffer.getEndIter(iter);
 		buffer.createMark("end", iter, false);
 
+		this.addOnButtonRelease(&this.onClick);
 		this.addOnMotionNotify(&this.onMotion);
+	}
+
+	bool onClick(Event event, Widget viewer) {
+		int bufferX, bufferY;
+
+		this.windowToBufferCoords(GtkTextWindowType.WIDGET, cast(int)event.motion().x, cast(int)event.motion().y, bufferX, bufferY);
+
+		TextIter position = new TextIter();
+		this.getIterAtLocation(position, bufferX, bufferY);
+
+		GtkPost post = this.getPostAtIter(position);
+		if (post) {
+			int offset = position.getLineOffset();
+			if (offset <= 8) {
+				writeln("Clock");
+			} else {
+				GtkPostSegment segment = post.getSegmentAt(offset);
+				if (segment.text.length) {
+					if (segment.context.clock) {
+						writeln("Segment: ", segment.text);
+					}
+				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
+					writeln("Login");
+				}
+			}
+		}
+
+		return true;
 	}
 
 	bool onMotion(Event event, Widget viewer) {
@@ -57,16 +87,30 @@ class TribuneViewer : TextView {
 		this.getIterAtLocation(position, bufferX, bufferY);
 
 		GtkPost post = this.getPostAtIter(position);
+		
+		GdkCursorType cursor = GdkCursorType.ARROW;
+
 		if (post) {
-			writeln("Post: ", post.post.message);
-			
-			GtkPostSegment segment = post.getSegmentAt(position.getLineOffset());
-			if (segment.text.length) {
-				writeln("Segment: ", segment.text);
+			int offset = position.getLineOffset();
+			if (offset <= 8) {
+				//writeln("Clock");
+				cursor = GdkCursorType.HAND1;
+			} else {
+				GtkPostSegment segment = post.getSegmentAt(offset);
+				if (segment.text.length) {
+					if (segment.context.clock) {
+						//writeln("Segment: ", segment.text);
+						cursor = GdkCursorType.HAND1;
+					}
+				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
+					//writeln("Login");
+				}
 			}
 		}
 
-		return true;
+		this.setCursor(new Cursor(cursor));
+
+		return false;
 	}
 
 	public GtkPost getPostAtIter(TextIter position) {
@@ -118,8 +162,11 @@ class TribuneViewer : TextView {
 		}
 		buffer.insert(iter, " ");
 
+		int postStart = iter.getLineOffset();
+
 		foreach (GtkPostSegment segment; segments) {
-			post.segmentIndices[iter.getLineOffset()] = segment;
+			int segmentStart = iter.getLineOffset();
+			post.segmentIndices[segmentStart] = segment;
 
 			TextMark startMark = buffer.createMark("start", iter, true);
 			TextMark endMark = buffer.createMark("start", iter, false);

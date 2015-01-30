@@ -293,6 +293,7 @@ class GtkUI : MainWindow {
 			viewer.registerTribune(gtkTribune);
 		}
 
+
 		return viewer;
 	}
 

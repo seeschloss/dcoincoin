@@ -38,7 +38,7 @@ class GtkPost {
 
 	GtkPostSegment getSegmentAt(int offset) {
 		foreach (int position, GtkPostSegment segment; this.segmentIndices) {
-			if (position >= offset && position < segment.text.length + offset) {
+			if (position <= offset && position + segment.text.length > offset) {
 				return segment;
 			}
 		}
