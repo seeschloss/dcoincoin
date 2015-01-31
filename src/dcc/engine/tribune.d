@@ -6,6 +6,7 @@ private import std.net.curl;
 private import std.xml;
 private import std.datetime;
 private import std.conv;
+private import std.stdio;
 private import std.string;
 private import std.algorithm;
 private import std.uri;
@@ -43,6 +44,20 @@ class Tribune {
 		this.refresh = refresh;
 		this.tags_encoded = tags_encoded;
 		this.color = color;
+	}
+
+	bool matches_name(string name) {
+		if (name == this.name) {
+			return true;
+		}
+
+		foreach (string a ; this.aliases) {
+			if (name == a) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	bool fetch_posts() {
@@ -101,6 +116,7 @@ class Tribune {
 
 		xml.onStartTag["post"] = (ElementParser xml) {
 			Post post = new Post();
+			post.tribune = this;
 			post.post_id = xml.tag.attr["id"];
 			post.timestamp = xml.tag.attr["time"];
 			xml.onEndTag["info"]    = (in Element e) {
@@ -290,6 +306,26 @@ class Post {
 		}
 
 		return clock;
+	}
+
+	bool matches_clock(Clock clock, Tribune origin_tribune) {
+		if (clock.tribune == "" && this.tribune != origin_tribune) {
+			return false;
+		}
+
+		if (clock.tribune != "" && !this.tribune.matches_name(clock.tribune)) {
+			return false;
+		}
+
+		if (clock.text == this.clock_ref) {
+			return true;
+		}
+
+		if (clock.text.length == 5 && clock.text == this.clock[0 .. 5]) {
+			return true;
+		}
+
+		return false;
 	}
 
 	string short_info() {

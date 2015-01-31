@@ -38,6 +38,7 @@ private import gtk.CellRenderer;
 private import gdk.Keymap;
 private import gdk.Event;
 private import gdk.Color;
+private import gdk.Cursor;
 private import gdk.RGBA;
 
 private import gtkc.gtk;
@@ -319,11 +320,13 @@ class GtkUI : MainWindow {
 		viewer.postLoginClick.connect(&onPostLoginClick);
 		viewer.postSegmentClick.connect(&onPostSegmentClick);
 
+		viewer.tribunes = this.tribunes.values;
+
 		return viewer;
 	}
 
 	void onPostClockClick(GtkPost post) {
-		writeln("Clicked on clock: ", post.post.timestamp);
+		writeln("Clicked on clock: ", post.post.clock);
 		this.setCurrentTribune(post.tribune);
 		this.input.insertText(post.post.clock ~ " ");
 		this.input.grabFocus();
@@ -444,6 +447,32 @@ class GtkTribune {
 		};
 
 		this.color = tribune.color;
+	}
+
+	GtkPost[] findPostsByClock(GtkPostSegment segment) {
+		GtkPost[] posts;
+
+		foreach (GtkPost post ; this.posts) {
+			if (post.post.matches_clock(segment.context.clock, this.tribune)) {
+				posts ~= post;
+			}
+		}
+
+		return posts;
+	}
+
+	GtkPostSegment[] findReferencesToPost(GtkPost post) {
+		GtkPostSegment[] segments;
+
+		foreach (GtkPost tested_post ; this.posts) {
+			foreach (GtkPostSegment segment ; tested_post.segments) {
+				if (segment.context.clock != Clock.init && post.post.matches_clock(segment.context.clock, post.tribune.tribune)) {
+					segments ~= segment;
+				}
+			}
+		}
+
+		return segments;
 	}
 
 	void fetch_posts(void delegate() callback = null) {

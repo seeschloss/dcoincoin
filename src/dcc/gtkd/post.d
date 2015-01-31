@@ -1,5 +1,6 @@
 module dcc.gtkd.post;
 
+private import std.conv;
 private import std.string;
 private import std.stdio;
 
@@ -14,14 +15,19 @@ struct GtkPostSegmentContext {
 		 underline = false,
 		 strike = false,
 		 fixed = false,
-		 clock = false,
 		 link = false,
 		 totoz = false;
+
+	Clock clock;
 }
 
-struct GtkPostSegment {
+class GtkPostSegment {
 	GtkPostSegmentContext context;
 	string text;
+
+	GtkPost post;
+
+	TextMark begin, end;
 }
 
 class GtkPost {
@@ -31,9 +37,19 @@ class GtkPost {
 	GtkPostSegment[] _segments;
 	GtkPostSegment[int] segmentIndices;
 
+	GtkPostSegment[] clockReferences;
+
 	this(GtkTribune tribune, Post post) {
 		this.tribune = tribune;
 		this.post = post;
+	}
+
+	string id() {
+		return this.post.post_id ~ "@" ~ this.tribune.tribune.name;
+	}
+
+	override string toString() {
+		return this.id;
 	}
 
 	GtkPostSegment getSegmentAt(int offset) {
@@ -57,13 +73,14 @@ class GtkPost {
 
 		GtkPostSegmentContext context;
 		foreach (int i, string sub; tokens) {
-			GtkPostSegment segment;
+			GtkPostSegment segment = new GtkPostSegment();
+			segment.post = this;
 
 			bool is_clock = false;
 
 			foreach (Clock post_clock; this.post.clocks) {
 				if (sub.strip == post_clock.text) {
-					context.clock = true;
+					context.clock = post_clock;
 				}
 			}
 
@@ -104,8 +121,8 @@ class GtkPost {
 				offset += segment.text.count;
 			}
 
-			if (context.clock) {
-				context.clock = false;
+			if (context.clock != Clock.init) {
+				context.clock = Clock.init;
 			}
 		}
 

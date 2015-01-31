@@ -2,6 +2,7 @@ module dcc.gtkd.tribuneviewer;
 
 private import std.stdio;
 private import std.signals;
+private import std.conv;
 
 private import gtk.TextView;
 private import gtk.TextBuffer;
@@ -27,7 +28,12 @@ private import dcc.gtkd.main;
 class TribuneViewer : TextView {
 	private TextMark begin, end;
 
+	public GtkTribune[] tribunes;
+
 	private GtkPost[string] posts;
+
+	private GtkPost[string] highlightedPosts;
+	private GtkPostSegment[GtkPostSegment] highlightedPostSegments;
 
 	mixin Signal!(GtkPost) postClockClick;
 	mixin Signal!(GtkPost) postLoginClick;
@@ -55,6 +61,8 @@ class TribuneViewer : TextView {
 		buffer.createTag("u", "underline"    , PangoUnderline.SINGLE);
 		buffer.createTag("s", "strikethrough", 1);
 
+		buffer.createTag("highlightedpost", "background", "white");
+
 		TextIter iter = new TextIter();
 		buffer.getEndIter(iter);
 		buffer.createMark("end", iter, false);
@@ -78,7 +86,7 @@ class TribuneViewer : TextView {
 				this.postClockClick.emit(post);
 			} else {
 				GtkPostSegment segment = post.getSegmentAt(offset);
-				if (segment.text.length) {
+				if (segment && segment.text && segment.text.length) {
 					this.postSegmentClick.emit(post, segment);
 				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
 					this.postLoginClick.emit(post);
@@ -89,6 +97,83 @@ class TribuneViewer : TextView {
 		return true;
 	}
 
+	void unHighlightEverything() {
+		foreach (GtkPost post ; this.highlightedPosts.dup) {
+			this.unHighlightPost(post);
+		}
+
+		foreach (GtkPostSegment segment ; this.highlightedPostSegments.dup) {
+			this.unHighlightPostSegment(segment);
+		}
+	}
+
+	void unHighlightPost(GtkPost post) {
+		if (post && post.id in this.highlightedPosts) {
+			TextIter beginIter = new TextIter();
+			TextIter endIter = new TextIter();
+
+			this.getBuffer().getIterAtMark(beginIter, post.begin);
+			this.getBuffer().getIterAtMark(endIter, post.end);
+
+			this.getBuffer().removeTagByName("highlightedpost", beginIter, endIter);
+			this.highlightedPosts.remove(post.id);
+		}
+	}
+
+	void highlightPost(GtkPost post) {
+		if (post && post.id !in this.highlightedPosts) {
+			writeln("Post: ", post.id);
+			TextIter beginIter = new TextIter();
+			TextIter endIter = new TextIter();
+
+			this.getBuffer().getIterAtMark(beginIter, post.begin);
+			this.getBuffer().getIterAtMark(endIter, post.end);
+
+			this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
+			this.highlightedPosts[post.id] = post;
+		}
+	}
+
+	void highlightPostSegment(GtkPostSegment segment) {
+		if (segment !in this.highlightedPostSegments) {
+			TextIter beginIter = new TextIter();
+			TextIter endIter = new TextIter();
+
+			this.getBuffer().getIterAtMark(beginIter, segment.begin);
+			this.getBuffer().getIterAtMark(endIter, segment.end);
+
+			this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
+			this.highlightedPostSegments[segment] = segment;
+		}
+	}
+
+	void unHighlightPostSegment(GtkPostSegment segment) {
+		if (segment in this.highlightedPostSegments) {
+			TextIter beginIter = new TextIter();
+			TextIter endIter = new TextIter();
+
+			this.getBuffer().getIterAtMark(beginIter, segment.begin);
+			this.getBuffer().getIterAtMark(endIter, segment.end);
+
+			this.getBuffer().removeTagByName("highlightedpost", beginIter, endIter);
+			this.highlightedPostSegments.remove(segment);
+		}
+	}
+
+	void highlightClock(GtkPostSegment segment) {
+		this.highlightPostSegment(segment);
+
+		foreach (GtkTribune tribune ; this.tribunes) {
+			foreach (GtkPost post; tribune.findPostsByClock(segment)) {
+				this.highlightPost(post);
+
+				foreach (GtkPostSegment found_segment; post.tribune.findReferencesToPost(post)) {
+					this.highlightPostSegment(found_segment);
+				}
+			}
+		}
+	}
+
 	bool onMotion(Event event, Widget viewer) {
 		int bufferX, bufferY;
 
@@ -97,24 +182,35 @@ class TribuneViewer : TextView {
 		TextIter position = new TextIter();
 		this.getIterAtLocation(position, bufferX, bufferY);
 
+		GdkCursorType cursor = GdkCursorType.ARROW;
 		GtkPost post = this.getPostAtIter(position);
+
+		this.unHighlightEverything();
 		if (post) {
 			this.postHover.emit(post);
 
 			int offset = position.getLineOffset();
 			if (offset <= 8) {
+				cursor = GdkCursorType.HAND2;
+				this.highlightPost(post);
 				this.postClockHover.emit(post);
 			} else {
 				GtkPostSegment segment = post.getSegmentAt(offset);
-				if (segment.text.length) {
+				if (segment && segment.text && segment.text.length) {
+					if (segment.context.clock != Clock.init) {
+						cursor = GdkCursorType.HAND2;
+						this.highlightClock(segment);
+					}
 					this.postSegmentHover.emit(post, segment);
 				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
+					cursor = GdkCursorType.HAND2;
 					this.postLoginHover.emit(post);
 				}
 			}
 		}
 
-		this.setCursor(new Cursor(cursor));
+
+		this.getWindow(GtkTextWindowType.TEXT).setCursor(new Cursor(cursor));
 
 		return false;
 	}
@@ -151,13 +247,13 @@ class TribuneViewer : TextView {
 
 		TextBuffer buffer = this.getBuffer();
 		TextIter iter = new TextIter();
-		buffer.getEndIter (iter);
+		buffer.getEndIter(iter);
 
 		if (buffer.getCharCount() > 1) {
-			buffer.insert (iter, "\n");
+			buffer.insert(iter, "\n");
 		}
 
-		post.begin = buffer.createMark(post.post.post_id, iter, true);
+		post.begin = buffer.createMark(post.id, iter, true);
 
 		buffer.insertWithTagsByName(iter, post.post.clock, ["mainclock"]);
 		buffer.insert(iter, " ");
@@ -170,12 +266,13 @@ class TribuneViewer : TextView {
 
 		int postStart = iter.getLineOffset();
 
-		foreach (GtkPostSegment segment; segments) {
+		foreach (int i, GtkPostSegment segment; segments) {
 			int segmentStart = iter.getLineOffset();
 			post.segmentIndices[segmentStart] = segment;
 
 			TextMark startMark = buffer.createMark("start", iter, true);
 			TextMark endMark = buffer.createMark("start", iter, false);
+			segment.begin = buffer.createMark("start-" ~ post.id ~ ":" ~ to!string(i), iter, true);
 
 			buffer.insert(iter, segment.text);
 
@@ -198,12 +295,14 @@ class TribuneViewer : TextView {
 				buffer.applyTagByName("s", startIter, iter);
 			}
 
-			if (segment.context.clock) {
+			if (segment.context.clock != Clock.init) {
 				buffer.applyTagByName("clock", startIter, iter);
 			}
+
+			segment.end = buffer.createMark("end-" ~ post.id ~ ":" ~ to!string(i), iter, true);
 		}
 
-		post.end = buffer.createMark("end-" ~ post.post.post_id, iter, true);
+		post.end = buffer.createMark("end-" ~ post.id, iter, true);
 
 		TextIter postStartIter = new TextIter();
 		buffer.getIterAtMark(postStartIter, post.begin);
@@ -211,7 +310,7 @@ class TribuneViewer : TextView {
 		buffer.getIterAtMark(postEndIter, post.end);
 		buffer.applyTagByName(post.tribune.tag, postStartIter, postEndIter);
 
-		this.posts[post.begin.getName()] = post;
+		this.posts[post.id] = post;
 
 		if (!this.begin) {
 			this.begin = post.begin;
