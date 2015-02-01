@@ -94,7 +94,7 @@ class TribuneViewer : TextView {
 			}
 		}
 
-		return true;
+		return false;
 	}
 
 	void unHighlightEverything() {
@@ -122,7 +122,6 @@ class TribuneViewer : TextView {
 
 	void highlightPost(GtkPost post) {
 		if (post && post.id !in this.highlightedPosts) {
-			writeln("Post: ", post.id);
 			TextIter beginIter = new TextIter();
 			TextIter endIter = new TextIter();
 
@@ -131,6 +130,10 @@ class TribuneViewer : TextView {
 
 			this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
 			this.highlightedPosts[post.id] = post;
+
+			foreach (GtkPostSegment found_segment; this.findReferencesToPost(post)) {
+				this.highlightPostSegment(found_segment);
+			}
 		}
 	}
 
@@ -160,17 +163,33 @@ class TribuneViewer : TextView {
 		}
 	}
 
+	GtkPost[] findPostsByClock(GtkPostSegment segment) {
+		GtkPost[] posts;
+
+		foreach (GtkTribune tribune ; this.tribunes) {
+			if (tribune.tribune.matches_name(segment.context.clock.tribune)) {
+				posts ~= tribune.findPostsByClock(segment);
+			}
+		}
+
+		return posts;
+	}
+
+	GtkPostSegment[] findReferencesToPost(GtkPost post) {
+		GtkPostSegment[] segments;
+
+		foreach (GtkTribune tribune ; this.tribunes) {
+			segments ~= tribune.findReferencesToPost(post);
+		}
+
+		return segments;
+	}
+
 	void highlightClock(GtkPostSegment segment) {
 		this.highlightPostSegment(segment);
 
-		foreach (GtkTribune tribune ; this.tribunes) {
-			foreach (GtkPost post; tribune.findPostsByClock(segment)) {
-				this.highlightPost(post);
-
-				foreach (GtkPostSegment found_segment; post.tribune.findReferencesToPost(post)) {
-					this.highlightPostSegment(found_segment);
-				}
-			}
+		foreach (GtkPost post; this.findPostsByClock(segment)) {
+			this.highlightPost(post);
 		}
 	}
 

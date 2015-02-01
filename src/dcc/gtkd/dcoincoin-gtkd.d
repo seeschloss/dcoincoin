@@ -24,6 +24,7 @@ private import gtk.ScrolledWindow;
 private import gtk.MessageDialog;
 private import gtk.Box;
 private import gtk.TextView;
+private import gtk.TextIter;
 private import gtk.TreeView;
 private import gtk.TreeViewColumn;
 private import gtk.TreeIter;
@@ -50,6 +51,7 @@ private import glib.Timeout;
 private import dcc.engine.conf;
 private import dcc.engine.tribune;
 private import dcc.gtkd.tribuneviewer;
+private import dcc.gtkd.tribuneinput;
 private import dcc.gtkd.post;
 
 extern (C) { char* setlocale(int category, const char* locale); }
@@ -106,7 +108,7 @@ class GtkUI : MainWindow {
 	GtkTribune currentTribune;
 
 	TribuneViewer viewer;
-	TextView input;
+	TribuneInput input;
 	TreeView tribunesList;
 	ListStore tribunesListStore;
 
@@ -133,6 +135,8 @@ class GtkUI : MainWindow {
 
 			tribune.on_new_post ~= &this.addPost;
 		}
+
+		this.setCurrentTribune(this.tribunes.values[$-1]);
 	}
 
 	void setup() {
@@ -165,23 +169,17 @@ class GtkUI : MainWindow {
 		this.currentTribune.fetch_posts();
 	}
 
-	TextView makeTribuneInput() {
-		TextView input = new TextView();
-		input.setEditable(true);
-		input.setWrapMode(WrapMode.CHAR);
+	TribuneInput makeTribuneInput() {
+		TribuneInput input = new TribuneInput();
 
 		input.addOnKeyPress((Event event, Widget source) {
-			input.overrideBackgroundColor(GtkStateFlags.NORMAL, new RGBA(1, 1, 1, 1));
 			GdkEventKey* key = event.key();
-			//writeln("Key: ", key.keyval, " - ", Keymap.gdkKeyvalName(key.keyval));
 
 			if (Keymap.gdkKeyvalName(key.keyval) == "Return") {
 				string text = input.getBuffer().getText();
 				this.post(text, (bool success) {
 					if (success) {
 						input.getBuffer().setText("");
-					} else {
-						input.overrideBackgroundColor(GtkStateFlags.NORMAL, new RGBA(1, 0.7, 0.7, 1));
 					}
 				});
 				return true;
@@ -276,6 +274,9 @@ class GtkUI : MainWindow {
 		TreeViewColumn column = new TribuneTreeViewColumn("Tribune", new CellRendererText());
 		tribunesList.appendColumn(column);
 		column.setResizable(false);
+		column.setExpand(false);
+		column.setSizing(GtkTreeViewColumnSizing.FIXED);
+		column.setFixedWidth(60);
 
 		TreeViewColumn column2 = new TribuneEnabledTreeViewColumn("Enabled", new CellRendererText());
 		tribunesList.appendColumn(column2);
@@ -307,6 +308,8 @@ class GtkUI : MainWindow {
 				this.tribunesListStore.setValue(iter, 4, 400);
 			}
 		} while (treeModel.iterNext(iter));
+
+		this.input.setCurrentTribune(tribune);
 	}
 
 	TribuneViewer makeTribuneViewer() {
@@ -321,6 +324,10 @@ class GtkUI : MainWindow {
 		viewer.postSegmentClick.connect(&onPostSegmentClick);
 
 		viewer.tribunes = this.tribunes.values;
+
+		viewer.addOnSizeAllocate((GdkRectangle* rect, Widget widget) {
+			viewer.scrollToEnd();
+		});
 
 		return viewer;
 	}
@@ -350,7 +357,7 @@ class GtkUI : MainWindow {
 		MenuBar menuBar = new MenuBar();
 		Menu menu = menuBar.append("_Tribunes");
 		menu.append(new MenuItem(&onMenuActivate, "_Settings", "tribunes.settings", true, accelGroup, 's'));
-		menu.append(new MenuItem(&onMenuActivate, "E_xit", "application.exit", true, accelGroup, 'x'));
+		menu.append(new MenuItem(&onMenuActivate, "E_xit", "application.exit", true, accelGroup, 'q'));
 
 		menu = menuBar.append("_Help");
 		menu.append(new MenuItem(&onMenuActivate, "_About", "help.about", true, accelGroup, 'a', GdkModifierType.CONTROL_MASK | GdkModifierType.SHIFT_MASK));
@@ -376,6 +383,18 @@ class GtkUI : MainWindow {
 	}
 }
 
+class GtkTribuneColor {
+	string desc;
+
+	this(string desc) {
+		this.desc = desc;
+	}
+
+	RGBA toRGBA() {
+		return new RGBA(1, 0, 0, 1);
+	}
+}
+
 class TribuneTreeViewColumn : TreeViewColumn {
 	this(string header, CellRenderer renderer) {
 		auto p = gtk_tree_view_column_new_with_attributes(
@@ -390,6 +409,8 @@ class TribuneTreeViewColumn : TreeViewColumn {
 		Str.toStringz("weight"),
 		4,
 		null);
+
+		renderer.setProperty("size-points", 8);
 		
 		if(p is null)
 		{
@@ -452,8 +473,12 @@ class GtkTribune {
 	GtkPost[] findPostsByClock(GtkPostSegment segment) {
 		GtkPost[] posts;
 
+		if (!this.tribune.matches_name(segment.context.clock.tribune)) {
+			return posts;
+		}
+
 		foreach (GtkPost post ; this.posts) {
-			if (post.post.matches_clock(segment.context.clock, this.tribune)) {
+			if (post.post.matches_clock(segment.context.clock)) {
 				posts ~= post;
 			}
 		}
@@ -466,7 +491,7 @@ class GtkTribune {
 
 		foreach (GtkPost tested_post ; this.posts) {
 			foreach (GtkPostSegment segment ; tested_post.segments) {
-				if (segment.context.clock != Clock.init && post.post.matches_clock(segment.context.clock, post.tribune.tribune)) {
+				if (segment.context.clock != Clock.init && post.post.matches_clock(segment.context.clock)) {
 					segments ~= segment;
 				}
 			}

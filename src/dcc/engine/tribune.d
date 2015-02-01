@@ -194,6 +194,7 @@ struct Clock {
 	int index;
 	string tribune;
 	string text;
+	Post post;
 }
 
 class Post {
@@ -255,11 +256,11 @@ class Post {
 					default: break;
 				}
 
-				string clock_tribune = "";
+				string clock_tribune = this.tribune.name;
 				if (capture["tribune"].length > 0) {
 					clock_tribune = capture["tribune"][1 .. $];
 				}
-				this.clocks ~= Clock(capture["time"], index, clock_tribune, capture.hit);
+				this.clocks ~= Clock(capture["time"], index, clock_tribune, capture.hit, this);
 
 				match.popFront();
 			}
@@ -308,8 +309,8 @@ class Post {
 		return clock;
 	}
 
-	bool matches_clock(Clock clock, Tribune origin_tribune) {
-		if (clock.tribune == "" && this.tribune != origin_tribune) {
+	bool matches_clock(Clock clock) {
+		if (clock.tribune == "" && this.tribune != clock.post.tribune) {
 			return false;
 		}
 
@@ -322,6 +323,14 @@ class Post {
 		}
 
 		if (clock.text.length == 5 && clock.text == this.clock[0 .. 5]) {
+			return true;
+		}
+
+		if (clock.time == this.clock && (clock.index == this.index || (clock.index == 1 && this.index == 0))) {
+			return true;
+		}
+
+		if (clock.time == format("%02s:%02s", this.time.hour, this.time.minute) && clock.index == this.index) {
 			return true;
 		}
 
