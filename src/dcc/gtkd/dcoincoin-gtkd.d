@@ -44,6 +44,8 @@ private import gdk.RGBA;
 
 private import gtkc.gtk;
 private import gtkc.gtktypes;
+private import gtkc.glib;
+
 private import glib.ConstructionException;
 private import glib.Str;
 private import glib.Timeout;
@@ -129,7 +131,7 @@ class GtkUI : MainWindow {
 		this.setup();
 
 		foreach (GtkTribune tribune ; this.tribunes) {
-			tribune.fetch_posts({
+			tribune.fetch_posts_async({
 				stderr.writeln("Posts fetched");
 			});
 
@@ -459,6 +461,7 @@ class GtkTribune {
 		this.tribune = tribune;
 
 		this.tribune.on_new_post ~= (Post post) {
+			writeln("New post on tribune ", this.tribune.name, ": ", post.toString());
 			GtkPost p = new GtkPost(this, post);
 			this.posts ~= p;
 
@@ -468,6 +471,18 @@ class GtkTribune {
 		};
 
 		this.color = tribune.color;
+
+		// Let's do it ourselves because the bindings don't seem to do things correctly
+		g_timeout_add_seconds(2, cast(GSourceFunc)&timeoutCallback, cast(void*)this);
+	}
+
+	extern(C) static int timeoutCallback(GtkTribune tribune) {
+		tribune.onTimeout();
+		return 1;
+	}
+
+	void onTimeout() {
+		this.fetch_posts_async();
 	}
 
 	GtkPost[] findPostsByClock(GtkPostSegment segment) {
@@ -502,8 +517,13 @@ class GtkTribune {
 
 	void fetch_posts(void delegate() callback = null) {
 		this.updating = true;
-		this.tribune.fetch_posts();
-		stderr.writeln("Fetched");
+		stderr.writeln("Updating ", this.tribune.name);
+		try {
+			this.tribune.fetch_posts();
+			stderr.writeln("Fetched");
+		} catch (Exception e) {
+			stderr.writeln("Not fetched");
+		}
 		this.updating = false;
 		if (callback) {
 			callback();
@@ -516,8 +536,12 @@ class GtkTribune {
 		}
 		this.updating = true;
 		core.thread.Thread t = new core.thread.Thread({
-			this.tribune.fetch_posts();
-			stderr.writeln("Fetched");
+			try {
+				this.tribune.fetch_posts();
+				stderr.writeln("Fetched");
+			} catch (Exception e) {
+				stderr.writeln("Not fetched");
+			}
 			this.updating = false;
 			if (callback) {
 				callback();
