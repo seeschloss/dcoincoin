@@ -740,7 +740,10 @@ class NCTribune {
 		}
 		this.updating = true;
 		core.thread.Thread t = new core.thread.Thread({
-			this.tribune.fetch_posts();
+			try {
+				this.tribune.fetch_posts();
+			} catch (Exception e) {
+			}
 			this.updating = false;
 			if (callback) {
 				callback();
