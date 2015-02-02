@@ -112,8 +112,8 @@ string uput(WINDOW* w, int y, int x, int length, string str, string prompt, out 
 				str = str.stripRight();
 				curspos = cast(int)str.count;
 				if (curspos > length) {
-					scroll_offset = curspos - length + 1;
 					curspos = length - 1;
+					scroll_offset = curspos - length + 1;
 				}
 				break;
 			case KEY_DC: //delete key
@@ -130,6 +130,10 @@ string uput(WINDOW* w, int y, int x, int length, string str, string prompt, out 
 					dstring utf32 = to!dstring(str.dup);
 					str = to!string(utf32[0 .. curspos - 1] ~ utf32[curspos .. $]);
 					curspos--;
+					
+					if (scroll_offset > 0) {
+						scroll_offset--;
+					}
 				}
 				break;
 			case 10: // enter
@@ -154,16 +158,16 @@ string uput(WINDOW* w, int y, int x, int length, string str, string prompt, out 
 			default:
 				if (curspos < str.count) {
 					dstring utf32 = to!dstring(str.dup);
-					ulong pos = curspos + scroll_offset;
+					ulong pos = curspos;
 					str = to!string(utf32[0 .. pos] ~ ky ~ utf32[pos .. $]);
 				} else {
 					str ~= ky;
 				}
 
+				curspos++;
+
 				if (curspos >= length - 1) {
 					scroll_offset++;
-				} else {
-					curspos++;
 				}
 		}
 
