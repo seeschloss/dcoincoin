@@ -41,6 +41,7 @@ private import gdk.Event;
 private import gdk.Color;
 private import gdk.Cursor;
 private import gdk.RGBA;
+private import gdk.Threads;
 
 private import gtkc.gtk;
 private import gtkc.gtktypes;
@@ -117,6 +118,8 @@ class GtkUI : MainWindow {
 	this(string config_file) {
 		super("DCoinCoin");
 
+		Main.initMultiThread([]);
+
 		this.config_file = config_file;
 
 		this.config = new Config(this.config_file);
@@ -131,7 +134,7 @@ class GtkUI : MainWindow {
 		this.setup();
 
 		foreach (GtkTribune tribune ; this.tribunes) {
-			tribune.fetch_posts_async({
+			tribune.fetch_posts({
 				stderr.writeln("Posts fetched");
 			});
 
@@ -194,8 +197,10 @@ class GtkUI : MainWindow {
 	}
 
 	void addPost(GtkPost post) {
+		threadsEnter();
 		this.viewer.renderPost(post);
 		this.viewer.scrollToEnd();
+		threadsLeave();
 	}
 
 	void displayAllPosts() {
@@ -548,7 +553,7 @@ class GtkTribune {
 			}
 		});
 		t.start();
-		t.join();
+		//t.join();
 	}
 }
 
