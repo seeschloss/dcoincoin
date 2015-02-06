@@ -229,6 +229,7 @@ class NCUI {
 	void set_status(string status) {
 		mvwhline(this.input_window, 0, 0, 0, COLS);
 		mvwprintw(this.input_window, 0, 2, "%s", this.tribune_names[this.active].toStringz());
+		mvwchgat(this.input_window, 0, 2, cast(int)this.tribune_names[this.active].length, A_BOLD, cast(short)this.tribunes[this.tribune_names[this.active]].ncolor(false), cast(void*)null);
 		mvwprintw(this.input_window, 0, cast(int)(COLS - 2 - status.length), "%s", status.toStringz());
 
 		wmove(this.input_window, 1, 0);
