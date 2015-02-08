@@ -3,6 +3,8 @@ module dcc.gtkd.tribuneviewer;
 private import std.stdio;
 private import std.signals;
 private import std.conv;
+private import std.algorithm;
+private import std.datetime : SysTime;
 
 private import gtk.TextView;
 private import gtk.TextBuffer;
@@ -31,6 +33,7 @@ class TribuneViewer : TextView {
 	public GtkTribune[] tribunes;
 
 	private GtkPost[string] posts;
+	private GtkPost[][SysTime] timestamps;
 
 	private GtkPost[string] highlightedPosts;
 	private GtkPostSegment[GtkPostSegment] highlightedPostSegments;
@@ -88,6 +91,11 @@ class TribuneViewer : TextView {
 				GtkPostSegment segment = post.getSegmentAt(offset);
 				if (segment && segment.text && segment.text.length) {
 					this.postSegmentClick.emit(post, segment);
+					if (segment.context.clock != Clock.init) {
+						foreach (GtkPost found_post; this.findPostsByClock(segment)) {
+							this.scrollToPost(found_post);
+						}
+					}
 				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
 					this.postLoginClick.emit(post);
 				}
@@ -95,6 +103,10 @@ class TribuneViewer : TextView {
 		}
 
 		return false;
+	}
+
+	void scrollToPost(GtkPost post) {
+		this.scrollMarkOnscreen(post.begin);
 	}
 
 	void unHighlightEverything() {
@@ -261,12 +273,37 @@ class TribuneViewer : TextView {
 		this.scrollMarkOnscreen(this.getBuffer().getMark("end"));
 	}
 
+	bool isScrolledDown() {
+		auto adjustment = this.getVadjustment();
+		return adjustment.getValue() >= (adjustment.getUpper() - adjustment.getPageSize()) - 10;
+	}
+
+	TextIter getIterForTime(SysTime insert_time) {
+		TextIter iter = new TextIter();
+		TextBuffer buffer = this.getBuffer();
+
+		auto times = sort!("a < b")(this.timestamps.keys);
+
+		foreach (SysTime time ; times) {
+			if (time > insert_time) {
+				GtkPost post = this.timestamps[time][0];
+				buffer.getIterAtMark(iter, post.begin);
+				iter.backwardChar();
+				return iter;
+			}
+		}
+
+		buffer.getEndIter(iter);
+		return iter;
+	}
+
 	void renderPost(GtkPost post) {
 		GtkPostSegment[] segments = post.segments();
 
 		TextBuffer buffer = this.getBuffer();
-		TextIter iter = new TextIter();
-		buffer.getEndIter(iter);
+		TextIter iter = this.getIterForTime(post.post.time);
+		//TextIter iter = new TextIter();
+		//buffer.getEndIter(iter);
 
 		if (buffer.getCharCount() > 1) {
 			buffer.insert(iter, "\n");
@@ -330,6 +367,7 @@ class TribuneViewer : TextView {
 		buffer.applyTagByName(post.tribune.tag, postStartIter, postEndIter);
 
 		this.posts[post.id] = post;
+		this.timestamps[post.post.time] ~= post;
 
 		if (!this.begin) {
 			this.begin = post.begin;

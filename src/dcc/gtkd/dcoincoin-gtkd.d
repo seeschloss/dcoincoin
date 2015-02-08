@@ -50,6 +50,7 @@ private import gtkc.glib;
 private import glib.ConstructionException;
 private import glib.Str;
 private import glib.Timeout;
+private import glib.Idle;
 
 private import dcc.engine.conf;
 private import dcc.engine.tribune;
@@ -117,8 +118,6 @@ class GtkUI : MainWindow {
 
 	this(string config_file) {
 		super("DCoinCoin");
-
-		Main.initMultiThread([]);
 
 		this.config_file = config_file;
 
@@ -197,10 +196,15 @@ class GtkUI : MainWindow {
 	}
 
 	void addPost(GtkPost post) {
-		threadsEnter();
-		this.viewer.renderPost(post);
-		this.viewer.scrollToEnd();
-		threadsLeave();
+		// Ensure this is done by the main loop, whenever it has the time
+		new Idle({
+			bool scroll = this.viewer.isScrolledDown();
+			this.viewer.renderPost(post);
+			if (scroll) {
+				this.viewer.scrollToEnd();
+			}
+			return false;
+		}, false);
 	}
 
 	void displayAllPosts() {
@@ -220,9 +224,7 @@ class GtkUI : MainWindow {
 			this.viewer.renderPost(post);
 		}
 
-		// Why do I need that?
-		new Timeout(100, {
-			this.viewer.grabFocus();
+		new Idle({
 			this.viewer.scrollToEnd();
 			return false;
 		}, false);
@@ -263,14 +265,8 @@ class GtkUI : MainWindow {
 			tribunesList.getCursor(currentPath, currentColumn);
 
 			TreeIter iter = new TreeIter();
-			treeModel.getIterFirst(iter);
-			do {
-				listStore.setValue(iter, 4, 400);
-			} while (treeModel.iterNext(iter));
-
 			iter = new TreeIter();
 			treeModel.getIter(iter, currentPath);
-			listStore.setValue(iter, 4, 1000);
 
 			string name = iter.getValueString(0);
 			if (name in this.tribunes) {
@@ -333,7 +329,7 @@ class GtkUI : MainWindow {
 		viewer.tribunes = this.tribunes.values;
 
 		viewer.addOnSizeAllocate((GdkRectangle* rect, Widget widget) {
-			viewer.scrollToEnd();
+			//viewer.scrollToEnd();
 		});
 
 		return viewer;
