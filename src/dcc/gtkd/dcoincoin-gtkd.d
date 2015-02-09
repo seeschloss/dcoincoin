@@ -34,6 +34,7 @@ private import gtk.CellRendererText;
 private import gtk.ListStore;
 private import gtk.Widget;
 private import gtk.CellRenderer;
+private import gtk.MountOperation;
 
 private import gdk.Keymap;
 private import gdk.Event;
@@ -368,6 +369,10 @@ class GtkUI : MainWindow {
 
 	void onPostSegmentClick(GtkPost post, GtkPostSegment segment) {
 		writeln("Clicked on segment: ", segment.text);
+		if (segment.context.link) {
+			writeln("Url is ", segment.context.link_target);
+			MountOperation.showUri(null, segment.context.link_target, 0);
+		}
 	}
 
 	MenuBar makeMenuBar() {

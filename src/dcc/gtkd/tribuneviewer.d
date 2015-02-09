@@ -59,6 +59,10 @@ class TribuneViewer : TextView {
 		buffer.createTag("login", "weight", PangoWeight.BOLD, "foreground-gdk", new Color(0, 0, 100));
 		buffer.createTag("clock", "weight", PangoWeight.BOLD, "foreground-gdk", new Color(0, 0, 100));
 
+		buffer.createTag("a", "weight"       , PangoWeight.BOLD,
+		                      "underline"    , PangoUnderline.SINGLE,
+		                      "foreground-gdk", new Color(0, 0, 100));
+
 		buffer.createTag("b", "weight"       , PangoWeight.BOLD);
 		buffer.createTag("i", "style"        , PangoStyle.ITALIC);
 		buffer.createTag("u", "underline"    , PangoUnderline.SINGLE);
@@ -231,6 +235,8 @@ class TribuneViewer : TextView {
 					if (segment.context.clock != Clock.init) {
 						cursor = GdkCursorType.HAND2;
 						this.highlightClock(segment);
+					} else if (segment.context.link) {
+						cursor = GdkCursorType.HAND2;
 					}
 					this.postSegmentHover.emit(post, segment);
 				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
@@ -302,8 +308,6 @@ class TribuneViewer : TextView {
 
 		TextBuffer buffer = this.getBuffer();
 		TextIter iter = this.getIterForTime(post.post.time);
-		//TextIter iter = new TextIter();
-		//buffer.getEndIter(iter);
 
 		if (buffer.getCharCount() > 1) {
 			buffer.insert(iter, "\n");
@@ -334,6 +338,10 @@ class TribuneViewer : TextView {
 
 			TextIter startIter = new TextIter();
 			buffer.getIterAtMark(startIter, startMark);
+
+			if (segment.context.link) {
+				buffer.applyTagByName("a", startIter, iter);
+			}
 
 			if (segment.context.bold) {
 				buffer.applyTagByName("b", startIter, iter);

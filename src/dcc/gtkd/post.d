@@ -19,6 +19,8 @@ struct GtkPostSegmentContext {
 		 totoz = false;
 
 	Clock clock;
+
+	string link_target = "";
 }
 
 class GtkPostSegment {
@@ -85,6 +87,12 @@ class GtkPost {
 			}
 
 			switch (sub.strip()) {
+				case "<a>":
+					context.link = true;
+					break;
+				case "</a>":
+					context.link = false;
+					break;
 				case "<b>":
 					context.bold = true;
 					break;
@@ -114,6 +122,10 @@ class GtkPost {
 					break;
 			}
 
+			if (context.link && segment.text) {
+				context.link_target ~= segment.text;
+				segment.text = "[url]";
+			}
 			segment.context = context;
 
 			if (segment.text) {
@@ -135,8 +147,8 @@ class GtkPost {
 		string line = this.post.message.replace(regex(`\s+`, "g"), " ");
 
 		// Since I can't use backreferences here...
-		line = line.replace(regex(`<a href="(.*?)".*?>(.*?)</a>`, "g"), "<$1>");
-		line = line.replace(regex(`<a href='(.*?)'.*?>(.*?)</a>`, "g"), "<$1>");
+		line = line.replace(regex(`<a href="(.*?)".*?>(.*?)</a>`, "g"), "<a>$1</a>");
+		line = line.replace(regex(`<a href='(.*?)'.*?>(.*?)</a>`, "g"), "<a>$1</a>");
 
 		line = std.array.replace(line, "&lt;", "<");
 		line = std.array.replace(line, "&gt;", ">");
