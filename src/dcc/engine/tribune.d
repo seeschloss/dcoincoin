@@ -27,6 +27,8 @@ class Tribune {
 	bool tags_encoded;
 	string color;
 
+	Duration time_offset;
+
 	Post[string] posts;
 	void delegate (Post)[] on_new_post;
 
@@ -171,6 +173,17 @@ class Tribune {
 		ubyte[] backend;
 		try {
 			backend = get!(HTTP, ubyte)(this.xml_url, connection);
+
+			if ("date" in connection.responseHeaders) {
+				try {
+					SysTime now = std.datetime.Clock.currTime(UTC());
+					SysTime tribuneTime = parseRFC822DateTime(connection.responseHeaders["date"]);
+
+					this.time_offset = now - tribuneTime;
+					writeln("Offset on ", this.name, ": ", this.time_offset);
+				} catch (DateTimeException e) {
+				}
+			}
 		} catch (CurlException e) {
 			return "";
 		}
@@ -215,6 +228,7 @@ class Post {
 	string post_id;
 	string _timestamp;
 	SysTime time;
+	SysTime real_time;
 
 	string info;
 	string message;
@@ -296,6 +310,7 @@ class Post {
 			int second = to!int(s[12..14]);
 
 			this.time = SysTime(DateTime(year, month, day, hour, minute, second));
+			this.real_time = this.time + this.tribune.time_offset;
 		}
 	}
 

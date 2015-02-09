@@ -281,7 +281,7 @@ class TribuneViewer : TextView {
 
 	bool isScrolledDown() {
 		auto adjustment = this.getVadjustment();
-		return adjustment.getValue() >= (adjustment.getUpper() - adjustment.getPageSize()) - 10;
+		return adjustment.getValue() >= (adjustment.getUpper() - adjustment.getPageSize()) - 120;
 	}
 
 	TextIter getIterForTime(SysTime insert_time) {
@@ -307,7 +307,7 @@ class TribuneViewer : TextView {
 		GtkPostSegment[] segments = post.segments();
 
 		TextBuffer buffer = this.getBuffer();
-		TextIter iter = this.getIterForTime(post.post.time);
+		TextIter iter = this.getIterForTime(post.post.real_time);
 
 		if (buffer.getCharCount() > 1) {
 			buffer.insert(iter, "\n");
@@ -375,7 +375,7 @@ class TribuneViewer : TextView {
 		buffer.applyTagByName(post.tribune.tag, postStartIter, postEndIter);
 
 		this.posts[post.id] = post;
-		this.timestamps[post.post.time] ~= post;
+		this.timestamps[post.post.real_time] ~= post;
 
 		if (!this.begin) {
 			this.begin = post.begin;

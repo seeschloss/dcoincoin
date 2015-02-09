@@ -102,6 +102,24 @@ void main(string[] args) {
 	}
 }
 
+class DCCIdle {
+	void delegate() f;
+
+	this(void delegate() f) {
+		this.f = f;
+
+		g_idle_add(cast(GSourceFunc)&run, cast(void*)this);
+	}
+
+	extern(C) static bool run(DCCIdle idle) {
+		if (idle.f) {
+			idle.f();
+			idle.f = null;
+		}
+		return false;
+	}
+}
+
 class GtkUI : MainWindow {
 	string config_file;
 	Config config;
@@ -141,10 +159,9 @@ class GtkUI : MainWindow {
 				tribune.on_new_post ~= &this.addPost;
 			}
 
-			new Idle({
+			new DCCIdle({
 				this.displayAllPosts();
-				return false;
-			}, false);
+			});
 		});
 		t.start();
 
@@ -196,10 +213,9 @@ class GtkUI : MainWindow {
 				core.thread.Thread t = new core.thread.Thread({
 					this.post(text, (bool success) {
 						if (success) {
-							new Idle({
+							new DCCIdle({
 								input.getBuffer().setText("");
-								return false;
-							}, false);
+							});
 						}
 					});
 				});
@@ -215,14 +231,13 @@ class GtkUI : MainWindow {
 
 	void addPost(GtkPost post) {
 		// Ensure this is done by the main loop, whenever it has the time
-		new Idle({
+		new DCCIdle({
 			bool scroll = this.viewer.isScrolledDown();
 			this.viewer.renderPost(post);
 			if (scroll) {
 				this.viewer.scrollToEnd();
 			}
-			return false;
-		}, false);
+		});
 	}
 
 	void displayAllPosts() {
@@ -242,10 +257,9 @@ class GtkUI : MainWindow {
 			this.viewer.renderPost(post);
 		}
 
-		new Idle({
+		new DCCIdle({
 			this.viewer.scrollToEnd();
-			return false;
-		}, false);
+		});
 	}
 
 	Box makeTribunesList() {
