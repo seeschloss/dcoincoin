@@ -32,6 +32,16 @@ class TribuneInput : TextView {
 		this.getStyleContext().addProvider(css, 600);
 	}
 
+	int lineHeight() {
+		int y, height;
+		TextIter iter = new TextIter();
+		this.getBuffer().getEndIter(iter);
+
+		this.getLineYrange(iter, y, height);
+
+		return height;
+	}
+
 	void setCurrentTribune(GtkTribune tribune) {
 		if (tribune.tag !in this.tribunes) {
 			this.buffer.createTag(tribune.tag, "paragraph-background", tribune.color);

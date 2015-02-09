@@ -13,6 +13,8 @@ private import std.uri;
 private import std.array;
 private import std.regex : regex, replace, ctRegex, match;
 
+import core.time;
+
 class Tribune {
 	string name;
 	string[] aliases;
@@ -164,12 +166,19 @@ class Tribune {
 	string fetch_backend() {
 		auto connection = HTTP();
 		connection.addRequestHeader("User-Agent", "DCoinCoin/" ~ VERSION);
-		ubyte[] backend = get!(HTTP, ubyte)(this.xml_url, connection);
+		connection.operationTimeout(2.seconds);
+
+		ubyte[] backend;
+		try {
+			backend = get!(HTTP, ubyte)(this.xml_url, connection);
+		} catch (CurlException e) {
+			return "";
+		}
 
 		if (backend.length > 0) {
 			return cast(string)backend;
 		} else {
-			return null;
+			return "";
 		}
 	}
 
@@ -177,13 +186,18 @@ class Tribune {
 		auto connection = HTTP();
 		connection.addRequestHeader("User-Agent", std.array.replace(this.ua, "%v", VERSION));
 		connection.addRequestHeader("Referer", this.xml_url);
+		connection.operationTimeout(2.seconds);
 
 		if (this.cookie.length) {
 			connection.addRequestHeader("Cookie", this.cookie);
 		}
 
 		string data = std.array.replace(this.post_format, "%s", message.encodeComponent());
-		std.net.curl.post(this.post_url, data, connection);
+		try {
+			std.net.curl.post(this.post_url, data, connection);
+		} catch (CurlException e) {
+			return false;
+		}
 
 		return connection.statusLine.code < 300;
 	}

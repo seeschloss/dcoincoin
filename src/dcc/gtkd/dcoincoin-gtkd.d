@@ -19,7 +19,6 @@ private import gtk.MenuBar;
 private import gtk.MenuItem;
 private import gtk.AccelGroup;
 private import gtk.Paned;
-private import gtk.Statusbar;
 private import gtk.ScrolledWindow;
 private import gtk.MessageDialog;
 private import gtk.Box;
@@ -94,7 +93,6 @@ void main(string[] args) {
 
 	GtkUI ui = new GtkUI(config_file);
 	ui.showAll();
-	ui.displayAllPosts();
 
 	if (ui.tribunes.length == 0) {
 		stderr.writeln("You should try to configure at least one tribune!");
@@ -113,6 +111,7 @@ class GtkUI : MainWindow {
 
 	TribuneViewer viewer;
 	TribuneInput input;
+	ScrolledWindow inputScroll;
 	TreeView tribunesList;
 	ListStore tribunesListStore;
 
@@ -132,15 +131,28 @@ class GtkUI : MainWindow {
 
 		this.setup();
 
-		foreach (GtkTribune tribune ; this.tribunes) {
-			tribune.fetch_posts({
-				stderr.writeln("Posts fetched");
-			});
+		core.thread.Thread t = new core.thread.Thread({
+			foreach (GtkTribune tribune ; this.tribunes) {
+				tribune.fetch_posts({
+					stderr.writeln("Posts fetched");
+				});
 
-			tribune.on_new_post ~= &this.addPost;
-		}
+				tribune.on_new_post ~= &this.addPost;
+			}
+
+			new Idle({
+				this.displayAllPosts();
+				return false;
+			}, false);
+		});
+		t.start();
 
 		this.setCurrentTribune(this.tribunes.values[$-1]);
+	}
+
+	override void showAll() {
+		super.showAll();
+		this.inputScroll.setSizeRequest(0, this.input.lineHeight() * 3);
 	}
 
 	void setup() {
@@ -159,10 +171,9 @@ class GtkUI : MainWindow {
 		mainBox.packStart(paned, true, true, 0);
 
 		this.input = makeTribuneInput();
-		mainBox.packStart(input, false, false, 0);
-
-		Statusbar statusbar = new Statusbar();
-		mainBox.packStart(statusbar, false, false, 0);
+		this.inputScroll = new ScrolledWindow(this.input);
+		this.inputScroll.setPolicy(GtkPolicyType.NEVER, GtkPolicyType.ALWAYS);
+		mainBox.packStart(this.inputScroll, false, false, 0);
 
 		this.add(mainBox);
 	}
@@ -181,11 +192,17 @@ class GtkUI : MainWindow {
 
 			if (Keymap.gdkKeyvalName(key.keyval) == "Return") {
 				string text = input.getBuffer().getText();
-				this.post(text, (bool success) {
-					if (success) {
-						input.getBuffer().setText("");
-					}
+				core.thread.Thread t = new core.thread.Thread({
+					this.post(text, (bool success) {
+						if (success) {
+							new Idle({
+								input.getBuffer().setText("");
+								return false;
+							}, false);
+						}
+					});
 				});
+				t.start();
 				return true;
 			}
 
@@ -532,24 +549,23 @@ class GtkTribune {
 	}
 
 	void fetch_posts_async(void delegate() callback = null) {
-		while (this.updating) {
-			core.thread.Thread.sleep(dur!("msecs")(50));
-		}
 		this.updating = true;
 		core.thread.Thread t = new core.thread.Thread({
-			try {
-				this.tribune.fetch_posts();
-				stderr.writeln("Fetched");
-			} catch (Exception e) {
-				stderr.writeln("Not fetched");
+			if (!this.updating) {
+				try {
+					this.tribune.fetch_posts();
+					stderr.writeln("Fetched");
+				} catch (Exception e) {
+					stderr.writeln("Not fetched");
+				}
+				this.updating = false;
 			}
-			this.updating = false;
+
 			if (callback) {
 				callback();
 			}
 		});
 		t.start();
-		//t.join();
 	}
 }
 
