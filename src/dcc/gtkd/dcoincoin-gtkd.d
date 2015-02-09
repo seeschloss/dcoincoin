@@ -490,17 +490,18 @@ class GtkTribune {
 
 		this.color = tribune.color;
 
-		// Let's do it ourselves because the bindings don't seem to do things correctly
-		g_timeout_add_seconds(2, cast(GSourceFunc)&timeoutCallback, cast(void*)this);
+		this.launchReloadThread();
 	}
 
-	extern(C) static int timeoutCallback(GtkTribune tribune) {
-		tribune.onTimeout();
-		return 1;
-	}
-
-	void onTimeout() {
-		this.fetch_posts_async();
+	void launchReloadThread() {
+		new core.thread.Thread({
+			while (true) {
+				core.thread.Thread.sleep(10.seconds);
+				if (!this.updating) {
+					this.fetch_posts();
+				}
+			}
+		}).start();
 	}
 
 	GtkPost[] findPostsByClock(GtkPostSegment segment) {
@@ -546,26 +547,6 @@ class GtkTribune {
 		if (callback) {
 			callback();
 		}
-	}
-
-	void fetch_posts_async(void delegate() callback = null) {
-		this.updating = true;
-		core.thread.Thread t = new core.thread.Thread({
-			if (!this.updating) {
-				try {
-					this.tribune.fetch_posts();
-					stderr.writeln("Fetched");
-				} catch (Exception e) {
-					stderr.writeln("Not fetched");
-				}
-				this.updating = false;
-			}
-
-			if (callback) {
-				callback();
-			}
-		});
-		t.start();
 	}
 }
 
