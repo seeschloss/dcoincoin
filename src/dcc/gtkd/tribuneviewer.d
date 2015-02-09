@@ -55,6 +55,9 @@ class TribuneViewer : TextView {
 
 		TextBuffer buffer = this.getBuffer();
 
+		buffer.createTag("mine", "background-gdk", new Color(200, 0, 0));
+		buffer.createTag("answer", "background-gdk", new Color(100, 0, 0));
+
 		buffer.createTag("mainclock", "foreground-gdk", new Color(50, 50, 50));
 		buffer.createTag("login", "weight", PangoWeight.BOLD, "foreground-gdk", new Color(0, 0, 100));
 		buffer.createTag("clock", "weight", PangoWeight.BOLD, "foreground-gdk", new Color(0, 0, 100));
@@ -131,6 +134,8 @@ class TribuneViewer : TextView {
 			this.getBuffer().getIterAtMark(beginIter, post.begin);
 			this.getBuffer().getIterAtMark(endIter, post.end);
 
+			beginIter.forwardChar();
+
 			this.getBuffer().removeTagByName("highlightedpost", beginIter, endIter);
 			this.highlightedPosts.remove(post.id);
 		}
@@ -143,6 +148,7 @@ class TribuneViewer : TextView {
 
 			this.getBuffer().getIterAtMark(beginIter, post.begin);
 			this.getBuffer().getIterAtMark(endIter, post.end);
+			beginIter.forwardChar();
 
 			this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
 			this.highlightedPosts[post.id] = post;
@@ -315,6 +321,13 @@ class TribuneViewer : TextView {
 
 		post.begin = buffer.createMark(post.id, iter, true);
 
+		string[] mine;
+		if (post.post.mine) {
+			mine ~= "mine";
+		} else if (post.answer) {
+			mine ~= "answer";
+		}
+		buffer.insertWithTagsByName(iter, " ", mine);
 		buffer.insertWithTagsByName(iter, post.post.clock, ["mainclock"]);
 		buffer.insert(iter, " ");
 		if (post.post.login) {

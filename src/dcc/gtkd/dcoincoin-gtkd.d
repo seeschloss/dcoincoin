@@ -5,9 +5,10 @@ private import std.random;
 private import std.stdio;
 private import std.string;
 private import std.conv;
-private import std.algorithm : filter, sort, find;
+private import std.algorithm : filter, sort, find, uniq, map;
 private import std.file : exists, copy;
 private import std.process : environment;
+private import std.array : array;
 
 private import core.thread;
 
@@ -230,6 +231,14 @@ class GtkUI : MainWindow {
 	}
 
 	void addPost(GtkPost post) {
+		post.referencedPosts = this.findReferencedPosts(post);
+
+		foreach (GtkPost referencedPost ; post.referencedPosts) {
+			referencedPost.referencingPosts[post] = post;
+		}
+
+		post.checkIfAnswer();
+
 		// Ensure this is done by the main loop, whenever it has the time
 		new DCCIdle({
 			bool scroll = this.viewer.isScrolledDown();
@@ -238,6 +247,30 @@ class GtkUI : MainWindow {
 				this.viewer.scrollToEnd();
 			}
 		});
+	}
+
+	GtkPostSegment[] findReferencesToPost(GtkPost post) {
+		GtkPostSegment[] segments;
+
+		foreach (GtkTribune tribune ; this.tribunes) {
+			segments ~= tribune.findReferencesToPost(post);
+		}
+
+		return segments;
+	}
+
+	GtkPost[] findReferencedPosts(GtkPost origin) {
+		GtkPost[] posts;
+
+		foreach (GtkTribune tribune ; this.tribunes) {
+			foreach (GtkPostSegment segment ; origin.segments) {
+				if (tribune.tribune.matches_name(segment.context.clock.tribune)) {
+					posts ~= tribune.findPostsByClock(segment);
+				}
+			}
+		}
+
+		return posts.uniq.array;
 	}
 
 	void displayAllPosts() {

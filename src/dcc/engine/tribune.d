@@ -26,6 +26,7 @@ class Tribune {
 	int refresh;
 	bool tags_encoded;
 	string color;
+	string login;
 
 	Duration time_offset;
 
@@ -37,7 +38,7 @@ class Tribune {
 		this.tags_encoded = tags_encoded;
 	}
 
-	this(string name, string[] aliases, string post_url, string post_format, string xml_url, string cookie, string ua, int refresh, bool tags_encoded, string color) {
+	this(string name, string[] aliases, string post_url, string post_format, string xml_url, string cookie, string ua, int refresh, bool tags_encoded, string color, string login) {
 		this.name = name;
 		this.aliases = aliases;
 		this.post_url = post_url;
@@ -48,6 +49,7 @@ class Tribune {
 		this.refresh = refresh;
 		this.tags_encoded = tags_encoded;
 		this.color = color;
+		this.login = login;
 	}
 
 	bool matches_name(string name) {
@@ -242,6 +244,18 @@ class Post {
 
 	override string toString() {
 		return this.clock ~ " " ~ this.login ~ "> " ~ this.message;
+	}
+
+	bool mine() {
+		if (this.login.length && this.login == this.tribune.login) {
+			return true;
+		}
+
+		if (this.info.length && this.info == this.tribune.ua) {
+			return true;
+		}
+
+		return false;
 	}
 
 	void analyze_clocks() {

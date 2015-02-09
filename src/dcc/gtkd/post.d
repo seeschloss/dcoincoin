@@ -41,6 +41,10 @@ class GtkPost {
 
 	GtkPostSegment[] clockReferences;
 
+	bool answer = false;
+	GtkPost[] referencedPosts;
+	GtkPost[GtkPost] referencingPosts;
+
 	this(GtkTribune tribune, Post post) {
 		this.tribune = tribune;
 		this.post = post;
@@ -52,6 +56,16 @@ class GtkPost {
 
 	override string toString() {
 		return this.id;
+	}
+
+	void checkIfAnswer() {
+		foreach (GtkPost post ; this.referencedPosts) {
+			if (post.post.mine || post.answer) {
+				writeln("This post ", this.post, " answers ", post.post);
+				this.answer = true;
+				return;
+			}
+		}
 	}
 
 	GtkPostSegment getSegmentAt(int offset) {
@@ -137,7 +151,6 @@ class GtkPost {
 				context.clock = Clock.init;
 			}
 		}
-
 
 		return this._segments;
 	}

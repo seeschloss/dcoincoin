@@ -66,7 +66,8 @@ class Config {
 		if (!color.length) {
 			color = this.default_color;
 		}
-		Tribune tribune = new Tribune(name, aliases, post_url, post_format, xml_url, cookie, ua, refresh, tags_encoded, color);
+		string login = section.getKey("login");
+		Tribune tribune = new Tribune(name, aliases, post_url, post_format, xml_url, cookie, ua, refresh, tags_encoded, color, login);
 
 		return tribune;
 	}
