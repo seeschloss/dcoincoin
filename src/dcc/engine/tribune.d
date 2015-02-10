@@ -34,6 +34,8 @@ class Tribune {
 	Post[string] posts;
 	void delegate (Post)[] on_new_post;
 
+	string last_posted_id;
+
 	this(string xml_url, bool tags_encoded) {
 		this.xml_url = xml_url;
 		this.tags_encoded = tags_encoded;
@@ -125,6 +127,9 @@ class Tribune {
 			Post post = new Post();
 			post.tribune = this;
 			post.post_id = xml.tag.attr["id"];
+			if (post.post_id == this.last_posted_id) {
+				post.mine = true;
+			}
 			post.timestamp = xml.tag.attr["time"];
 			xml.onEndTag["info"]    = (in Element e) {
 				post.info = replace(e.text().strip(), control_chars, " ");
@@ -211,6 +216,9 @@ class Tribune {
 		string data = std.array.replace(this.post_format, "%s", message.encodeComponent());
 		try {
 			std.net.curl.post(this.post_url, data, connection);
+			if ("x-post-id" in connection.responseHeaders) {
+				this.last_posted_id = connection.responseHeaders["x-post-id"];
+			}
 		} catch (CurlException e) {
 			return false;
 		}
@@ -242,12 +250,21 @@ class Post {
 	Tribune tribune;
 
 	Clock[] clocks;
+	bool _mine;
 
 	override string toString() {
 		return this.clock ~ " " ~ this.login ~ "> " ~ this.message;
 	}
 
+	void mine(bool mine) {
+		this._mine = mine;
+	}
+
 	bool mine() {
+		if (this._mine) {
+			return this._mine;
+		}
+
 		if (this.login.length && this.login == this.tribune.login) {
 			return true;
 		}
