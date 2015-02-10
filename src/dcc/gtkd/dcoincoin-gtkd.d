@@ -232,7 +232,7 @@ class GtkUI : MainWindow {
 		return input;
 	}
 
-	void addPost(GtkPost post) {
+	void updatePost(GtkPost post) {
 		post.referencedPosts = this.findReferencedPosts(post);
 
 		foreach (GtkPost referencedPost ; post.referencedPosts) {
@@ -248,6 +248,10 @@ class GtkUI : MainWindow {
 		}
 
 		this.latestPost = post;
+	}
+
+	void addPost(GtkPost post) {
+		this.updatePost(post);
 
 		// Ensure this is done by the main loop, whenever it has the time
 		new DCCIdle({
@@ -297,6 +301,7 @@ class GtkUI : MainWindow {
 		});
 
 		foreach (GtkPost post; posts) {
+			this.updatePost(post);
 			this.viewer.renderPost(post);
 		}
 

@@ -55,12 +55,15 @@ class TribuneViewer : TextView {
 
 		TextBuffer buffer = this.getBuffer();
 
-		buffer.createTag("mine", "background-gdk", new Color(200, 0, 0));
-		buffer.createTag("answer", "background-gdk", new Color(100, 0, 0));
+		buffer.createTag("mine", "background-gdk", new Color(100, 0, 0));
+		buffer.createTag("answer", "background-gdk", new Color(220, 0, 0));
 
 		buffer.createTag("mainclock", "foreground-gdk", new Color(50, 50, 50));
-		buffer.createTag("login", "weight", PangoWeight.BOLD, "foreground-gdk", new Color(0, 0, 100));
-		buffer.createTag("clock", "weight", PangoWeight.BOLD, "foreground-gdk", new Color(0, 0, 100));
+
+		buffer.createTag("login", "weight", PangoWeight.BOLD , "foreground-gdk", new Color(0, 0, 100));
+		buffer.createTag("info",  "style" , PangoStyle.ITALIC, "foreground-gdk", new Color(0, 0, 100));
+
+		buffer.createTag("clock", "weight", PangoWeight.BOLD , "foreground-gdk", new Color(0, 0, 100));
 
 		buffer.createTag("a", "weight"       , PangoWeight.BOLD,
 		                      "underline"    , PangoUnderline.SINGLE,
@@ -333,7 +336,7 @@ class TribuneViewer : TextView {
 		if (post.post.login) {
 			buffer.insertWithTagsByName(iter, post.post.login, ["login"]);
 		} else {
-			buffer.insertWithTagsByName(iter, post.post.short_info, ["login"]);
+			buffer.insertWithTagsByName(iter, post.post.short_info, ["info"]);
 		}
 		buffer.insert(iter, " ");
 
