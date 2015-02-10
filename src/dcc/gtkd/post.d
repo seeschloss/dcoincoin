@@ -60,7 +60,7 @@ class GtkPost {
 
 	void checkIfAnswer() {
 		foreach (GtkPost post ; this.referencedPosts) {
-			if (post.post.mine || post.answer) {
+			if (post.post.mine) {
 				writeln("This post ", this.post, " answers ", post.post);
 				this.answer = true;
 				return;
