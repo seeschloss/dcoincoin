@@ -29,6 +29,7 @@ class Tribune {
 	string login;
 
 	Duration time_offset;
+	bool unreliable_date = false;
 
 	Post[string] posts;
 	void delegate (Post)[] on_new_post;
@@ -176,7 +177,7 @@ class Tribune {
 		try {
 			backend = get!(HTTP, ubyte)(this.xml_url, connection);
 
-			if ("date" in connection.responseHeaders) {
+			if (!this.unreliable_date && "date" in connection.responseHeaders) {
 				try {
 					SysTime now = std.datetime.Clock.currTime(UTC());
 					SysTime tribuneTime = parseRFC822DateTime(connection.responseHeaders["date"]);
@@ -312,6 +313,7 @@ class Post {
 	string timestamp() {
 		return this._timestamp;
 	}
+
 	void timestamp(string s) {
 		this._timestamp = s;
 

@@ -135,6 +135,8 @@ class GtkUI : MainWindow {
 	TreeView tribunesList;
 	ListStore tribunesListStore;
 
+	GtkPost latestPost;
+
 	this(string config_file) {
 		super("DCoinCoin");
 
@@ -238,6 +240,14 @@ class GtkUI : MainWindow {
 		}
 
 		post.checkIfAnswer();
+
+		if (this.latestPost && post.post.real_time < this.latestPost.post.real_time) {
+			post.post.tribune.unreliable_date = true;
+			post.post.tribune.time_offset = this.latestPost.post.real_time - post.post.time;
+			post.post.real_time = this.latestPost.post.real_time + 1.msecs;
+		}
+
+		this.latestPost = post;
 
 		// Ensure this is done by the main loop, whenever it has the time
 		new DCCIdle({
