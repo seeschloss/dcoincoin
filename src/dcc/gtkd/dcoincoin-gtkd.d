@@ -323,6 +323,32 @@ class GtkUI : MainWindow {
 		TreeSelection ts = tribunesList.getSelection();
 		ts.setMode(SelectionMode.NONE);
 
+		tribunesList.addOnButtonPress((Event event, Widget widget) {
+			switch (event.button.button) {
+				case 1:
+					return false;
+				case 2:
+					TreeModelIF treeModel = tribunesList.getModel();
+					TreePath currentPath;
+					TreeViewColumn currentColumn;
+					int cellX, cellY;
+					tribunesList.getPathAtPos(cast(int)event.button.x, cast(int)event.button.y, currentPath, currentColumn, cellX, cellY);
+
+					TreeIter iter = new TreeIter();
+					iter = new TreeIter();
+					treeModel.getIter(iter, currentPath);
+
+					string name = iter.getValueString(0);
+					if (name in this.tribunes) {
+						this.tribunes[name].forceReload();
+					}
+
+					return true;
+				default:
+					return false;
+			}
+		});
+
 		tribunesList.addOnCursorChanged((TreeView treeView) {
 			TreeModelIF treeModel = tribunesList.getModel();
 			TreePath currentPath;
@@ -522,6 +548,7 @@ class GtkTribune {
 	string color;
 
 	bool updating;
+	GtkTribuneReloadThread reloadThread;
 
 	ListStore listStore;
 	TreeIter iter;
@@ -545,15 +572,52 @@ class GtkTribune {
 		this.launchReloadThread();
 	}
 
-	void launchReloadThread() {
-		new core.thread.Thread({
+	class GtkTribuneReloadThread : Thread {
+		GtkTribune tribune;
+		uint timeout;
+
+		uint remaining;
+
+		this(GtkTribune tribune, uint timeout) {
+			this.tribune = tribune;
+			this.timeout = timeout;
+			this.resetRemaining();
+			super(&run);
+		}
+
+		void run() {
 			while (true) {
-				core.thread.Thread.sleep(10.seconds);
-				if (!this.updating) {
-					this.fetch_posts();
+				while (this.remaining > 0) {
+					this.remaining--;
+					core.thread.Thread.sleep(100.msecs);
 				}
+				this.resetRemaining();
+				this.reload();
 			}
-		}).start();
+		}
+
+		void reloadNow() {
+			this.remaining = 0;
+		}
+
+		void resetRemaining() {
+			this.remaining = timeout * 10;
+		}
+
+		void reload() {
+			if (!tribune.updating) {
+				tribune.fetch_posts();
+			}
+		}
+	}
+
+	void launchReloadThread() {
+		this.reloadThread = new GtkTribuneReloadThread(this, 10);
+		this.reloadThread.start();
+	}
+
+	void forceReload() {
+		this.reloadThread.reloadNow();
 	}
 
 	GtkPost[] findPostsByClock(GtkPostSegment segment) {
