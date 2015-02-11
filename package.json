@@ -14,7 +14,8 @@
 			"targetType": "executable",
 			"mainSourceFile": "src/dcc/curses/dcoincoin-curses.d",
 			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/cli/*"],
-			"libs": ["ncurses", "panel", "curl"]
+			"libs": ["panel", "curl"],
+			"dependencies": {"ncurses": "~master"}
 		},
 		{
 			"name": "cli",
