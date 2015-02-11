@@ -47,6 +47,8 @@ class TribuneViewer : TextView {
 	mixin Signal!(GtkPost) postLoginHover;
 	mixin Signal!(GtkPost, GtkPostSegment) postSegmentHover;
 
+	mixin Signal!(GtkPost) postHighlight;
+
 	this() {
 		this.setEditable(false);
 		this.setCursorVisible(false);
@@ -82,6 +84,8 @@ class TribuneViewer : TextView {
 
 		this.addOnButtonRelease(&this.onClick);
 		this.addOnMotionNotify(&this.onMotion);
+
+		this.setBorderWindowSize(GtkTextWindowType.LEFT, 4);
 	}
 
 	bool onClick(Event event, Widget viewer) {
@@ -116,7 +120,7 @@ class TribuneViewer : TextView {
 	}
 
 	void scrollToPost(GtkPost post) {
-		this.scrollMarkOnscreen(post.begin);
+		this.scrollMarkOnscreen(this.postBegins[post]);
 	}
 
 	void unHighlightEverything() {
@@ -134,8 +138,8 @@ class TribuneViewer : TextView {
 			TextIter beginIter = new TextIter();
 			TextIter endIter = new TextIter();
 
-			this.getBuffer().getIterAtMark(beginIter, post.begin);
-			this.getBuffer().getIterAtMark(endIter, post.end);
+			this.getBuffer().getIterAtMark(beginIter, this.postBegins[post]);
+			this.getBuffer().getIterAtMark(endIter, this.postEnds[post]);
 
 			beginIter.forwardChar();
 
@@ -146,11 +150,13 @@ class TribuneViewer : TextView {
 
 	void highlightPost(GtkPost post) {
 		if (post && post.id !in this.highlightedPosts) {
+			this.postHighlight.emit(post);
+
 			TextIter beginIter = new TextIter();
 			TextIter endIter = new TextIter();
 
-			this.getBuffer().getIterAtMark(beginIter, post.begin);
-			this.getBuffer().getIterAtMark(endIter, post.end);
+			this.getBuffer().getIterAtMark(beginIter, this.postBegins[post]);
+			this.getBuffer().getIterAtMark(endIter, this.postEnds[post]);
 			beginIter.forwardChar();
 
 			this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
@@ -167,8 +173,8 @@ class TribuneViewer : TextView {
 			TextIter beginIter = new TextIter();
 			TextIter endIter = new TextIter();
 
-			this.getBuffer().getIterAtMark(beginIter, segment.begin);
-			this.getBuffer().getIterAtMark(endIter, segment.end);
+			this.getBuffer().getIterAtMark(beginIter, this.segmentBegins[segment]);
+			this.getBuffer().getIterAtMark(endIter, this.segmentEnds[segment]);
 
 			this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
 			this.highlightedPostSegments[segment] = segment;
@@ -180,8 +186,8 @@ class TribuneViewer : TextView {
 			TextIter beginIter = new TextIter();
 			TextIter endIter = new TextIter();
 
-			this.getBuffer().getIterAtMark(beginIter, segment.begin);
-			this.getBuffer().getIterAtMark(endIter, segment.end);
+			this.getBuffer().getIterAtMark(beginIter, this.segmentBegins[segment]);
+			this.getBuffer().getIterAtMark(endIter, this.segmentEnds[segment]);
 
 			this.getBuffer().removeTagByName("highlightedpost", beginIter, endIter);
 			this.highlightedPostSegments.remove(segment);
@@ -302,7 +308,7 @@ class TribuneViewer : TextView {
 		foreach (SysTime time ; times) {
 			if (time > insert_time) {
 				GtkPost post = this.timestamps[time][0];
-				buffer.getIterAtMark(iter, post.begin);
+				buffer.getIterAtMark(iter, this.postBegins[post]);
 				iter.backwardChar();
 				return iter;
 			}
@@ -311,6 +317,11 @@ class TribuneViewer : TextView {
 		buffer.getEndIter(iter);
 		return iter;
 	}
+
+	TextMark[GtkPost] postBegins;
+	TextMark[GtkPost] postEnds;
+	TextMark[GtkPostSegment] segmentBegins;
+	TextMark[GtkPostSegment] segmentEnds;
 
 	void renderPost(GtkPost post) {
 		GtkPostSegment[] segments = post.segments();
@@ -322,11 +333,14 @@ class TribuneViewer : TextView {
 			buffer.insert(iter, "\n");
 		}
 
-		post.begin = buffer.createMark(post.id, iter, true);
+		this.postBegins[post] = buffer.createMark(post.id, iter, true);
 
 		string[] mine;
 		if (post.post.mine) {
 			mine ~= "mine";
+
+			auto left = this.getWindow(GtkTextWindowType.LEFT);
+
 		} else if (post.answer) {
 			mine ~= "answer";
 		}
@@ -348,7 +362,7 @@ class TribuneViewer : TextView {
 
 			TextMark startMark = buffer.createMark("start", iter, true);
 			TextMark endMark = buffer.createMark("start", iter, false);
-			segment.begin = buffer.createMark("start-" ~ post.id ~ ":" ~ to!string(i), iter, true);
+			this.segmentBegins[segment] = buffer.createMark("start-" ~ post.id ~ ":" ~ to!string(i), iter, true);
 
 			buffer.insert(iter, segment.text);
 
@@ -379,26 +393,26 @@ class TribuneViewer : TextView {
 				buffer.applyTagByName("clock", startIter, iter);
 			}
 
-			segment.end = buffer.createMark("end-" ~ post.id ~ ":" ~ to!string(i), iter, true);
+			this.segmentEnds[segment] = buffer.createMark("end-" ~ post.id ~ ":" ~ to!string(i), iter, true);
 		}
 
-		post.end = buffer.createMark("end-" ~ post.id, iter, true);
+		this.postEnds[post] = buffer.createMark("end-" ~ post.id, iter, true);
 
 		TextIter postStartIter = new TextIter();
-		buffer.getIterAtMark(postStartIter, post.begin);
+		buffer.getIterAtMark(postStartIter, this.postBegins[post]);
 		TextIter postEndIter = new TextIter();
-		buffer.getIterAtMark(postEndIter, post.end);
+		buffer.getIterAtMark(postEndIter, this.postEnds[post]);
 		buffer.applyTagByName(post.tribune.tag, postStartIter, postEndIter);
 
 		this.posts[post.id] = post;
 		this.timestamps[post.post.real_time] ~= post;
 
 		if (!this.begin) {
-			this.begin = post.begin;
+			this.begin = this.postBegins[post];
 		}
 
 		if (!this.end) {
-			this.end = post.end;
+			this.end = this.postEnds[post];
 		}
 	}
 }

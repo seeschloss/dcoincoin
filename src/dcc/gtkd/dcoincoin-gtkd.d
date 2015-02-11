@@ -36,6 +36,7 @@ private import gtk.ListStore;
 private import gtk.Widget;
 private import gtk.CellRenderer;
 private import gtk.MountOperation;
+private import gtk.Overlay;
 
 private import gdk.Keymap;
 private import gdk.Event;
@@ -134,6 +135,8 @@ class GtkUI : MainWindow {
 	ScrolledWindow inputScroll;
 	TreeView tribunesList;
 	ListStore tribunesListStore;
+	Overlay overlay;
+	TribuneViewer preview;
 
 	GtkPost latestPost;
 
@@ -178,6 +181,14 @@ class GtkUI : MainWindow {
 
 	void setup() {
 		this.viewer = this.makeTribuneViewer();
+		this.preview = new TribuneViewer();
+		this.preview.setValign(GtkAlign.START);
+
+		foreach (GtkTribune gtkTribune; this.tribunes) {
+			this.preview.registerTribune(gtkTribune);
+		}
+
+		this.preview.tribunes = this.tribunes.values;
 
 		Box mainBox = new Box(GtkOrientation.VERTICAL, 0);
 		mainBox.packStart(makeMenuBar(), false, false, 0);
@@ -187,7 +198,18 @@ class GtkUI : MainWindow {
 		paned.add1(this.makeTribunesList());
 		ScrolledWindow scrolledWindow = new ScrolledWindow(this.viewer);
 		scrolledWindow.setPolicy(GtkPolicyType.NEVER, GtkPolicyType.ALWAYS);
-		paned.add2(scrolledWindow);
+
+		this.overlay = new Overlay();
+		this.overlay.add(scrolledWindow);
+		this.overlay.addOnGetChildPosition((Widget widget, GdkRectangle* rectangle, Overlay overlay) {
+				rectangle.x = 0;
+				rectangle.y = 0;
+				rectangle.width = 100;
+				rectangle.height = 100;
+			return true;
+		});
+
+		paned.add2(this.overlay);
 
 		mainBox.packStart(paned, true, true, 0);
 
@@ -432,6 +454,8 @@ class GtkUI : MainWindow {
 		viewer.postLoginClick.connect(&onPostLoginClick);
 		viewer.postSegmentClick.connect(&onPostSegmentClick);
 
+		viewer.postHighlight.connect(&onPostHighlight);
+
 		viewer.tribunes = this.tribunes.values;
 
 		viewer.addOnSizeAllocate((GdkRectangle* rect, Widget widget) {
@@ -461,6 +485,11 @@ class GtkUI : MainWindow {
 			writeln("Url is ", segment.context.link_target);
 			MountOperation.showUri(null, segment.context.link_target, 0);
 		}
+	}
+
+	void onPostHighlight(GtkPost post) {
+		writeln("Highlighting post ", post.post);
+		this.preview.renderPost(post);
 	}
 
 	MenuBar makeMenuBar() {

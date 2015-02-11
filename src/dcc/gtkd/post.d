@@ -28,13 +28,10 @@ class GtkPostSegment {
 	string text;
 
 	GtkPost post;
-
-	TextMark begin, end;
 }
 
 class GtkPost {
 	Post post;
-	TextMark begin, end;
 	GtkTribune tribune;
 	GtkPostSegment[] _segments;
 	GtkPostSegment[int] segmentIndices;
