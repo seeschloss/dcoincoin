@@ -94,7 +94,7 @@ class TribuneViewer : TextView {
 
 		// Draw coloured lines in the left margin to indicate post ownership
 		this.addOnDraw((Context c, Widget widget) {
-			auto context = this.getWindow(GtkTextWindowType.WIDGET).createContext();
+			auto context = (cast(TextView)widget).getWindow(GtkTextWindowType.WIDGET).createContext();
 			context.setLineWidth(2);
 
 			Rectangle visible;

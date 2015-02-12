@@ -188,7 +188,6 @@ class Tribune {
 					SysTime tribuneTime = parseRFC822DateTime(connection.responseHeaders["date"]);
 
 					this.time_offset = now - tribuneTime;
-					writeln("Offset on ", this.name, ": ", this.time_offset);
 				} catch (DateTimeException e) {
 				}
 			}

@@ -236,12 +236,14 @@ class GtkUI : MainWindow {
 			if (Keymap.gdkKeyvalName(key.keyval) == "Return") {
 				string text = input.getBuffer().getText();
 				core.thread.Thread t = new core.thread.Thread({
+					new DCCIdle({input.setProperty("editable", false);});
 					this.post(text, (bool success) {
 						if (success) {
 							new DCCIdle({
 								input.getBuffer().setText("");
 							});
 						}
+						new DCCIdle({input.setProperty("editable", true);});
 					});
 				});
 				t.start();
@@ -276,11 +278,12 @@ class GtkUI : MainWindow {
 		this.updatePost(post);
 
 		// Ensure this is done by the main loop, whenever it has the time
+		auto viewer = this.viewer;
 		new DCCIdle({
-			bool scroll = this.viewer.isScrolledDown();
-			this.viewer.renderPost(post);
+			bool scroll = viewer.isScrolledDown();
+			viewer.renderPost(post);
 			if (scroll) {
-				this.viewer.scrollToEnd();
+				viewer.scrollToEnd();
 			}
 		});
 	}
@@ -699,9 +702,9 @@ class GtkTribune {
 		stderr.writeln("Updating ", this.tribune.name);
 		try {
 			this.tribune.fetch_posts();
-			stderr.writeln("Fetched");
+			stderr.writeln("Fetched ", this.tribune.name);
 		} catch (Exception e) {
-			stderr.writeln("Not fetched");
+			stderr.writeln("Not fetched ", this.tribune.name);
 		}
 		this.updating = false;
 		if (callback) {
