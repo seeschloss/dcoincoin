@@ -55,13 +55,13 @@ class TribuneViewer : TextView {
 
 	Color[GtkTribune] tribuneColors;
 	uint[GtkPost] postOffsets;
-	uint[GtkPost] postLengths;
+	uint[GtkPost] postEndOffsets;
 
 	this() {
 		this.setEditable(false);
 		this.setCursorVisible(false);
 		this.setWrapMode(WrapMode.WORD);
-		this.setIndent(-10);
+		this.setIndent(-12);
 
 		TextBuffer buffer = this.getBuffer();
 
@@ -90,11 +90,12 @@ class TribuneViewer : TextView {
 		this.addOnButtonRelease(&this.onClick);
 		this.addOnMotionNotify(&this.onMotion);
 
-		this.setBorderWindowSize(GtkTextWindowType.LEFT, 4);
+		this.setBorderWindowSize(GtkTextWindowType.LEFT, 2);
 
+		// Draw coloured lines in the left margin to indicate post ownership
 		this.addOnDraw((Context c, Widget widget) {
 			auto context = this.getWindow(GtkTextWindowType.WIDGET).createContext();
-			context.setLineWidth(4);
+			context.setLineWidth(2);
 
 			Rectangle visible;
 			this.getVisibleRect(visible);
@@ -108,8 +109,6 @@ class TribuneViewer : TextView {
 
 			int lineHeight = 0;
 
-			writeln("Posts: ", this.posts.values.length);
-					context.setSourceRgb(0, 0.2, 0.8);
 			foreach (string post_id, GtkPost post; this.posts) {
 				if (post.post.mine) {
 					context.setSourceRgb(0.5, 0.2, 0.2);
@@ -120,8 +119,6 @@ class TribuneViewer : TextView {
 						Color color = new Color();
 						Color.parse(post.tribune.color, color);
 						this.tribuneColors[post.tribune] = color;
-						writeln("Tribune ", post.tribune.tribune.name, " : ", color.red, " - ",
-								cast(double)(color.red)/ushort.max);
 					}
 
 					context.setSourceRgb(
@@ -138,24 +135,32 @@ class TribuneViewer : TextView {
 					lineHeight = location.height;
 				}
 
+				// This complicated stuff is necessary because getIterAtMark is *very* slow,
+				// too slow to call it at each draw
 				if (post !in this.postOffsets) {
 					buffer.getIterAtMark(iter, this.postBegins[post]);
 					this.getIterLocation(iter, location);
 					this.bufferToWindowCoords(GtkTextWindowType.LEFT,
 						0, location.y, startX, startY);
-					this.postOffsets[post] = startY;
+
+					// For some reason, iters that are after the visible area are misplaced
+					// so we'll wait until they get visible to get their location
+					if (location.y > visible.y + visible.height) {
+						continue;
+					}
+					this.postOffsets[post] = location.y;
 				}
 
-				if (post !in this.postLengths) {
+				if (post !in this.postEndOffsets) {
 					buffer.getIterAtMark(iter, this.postEnds[post]);
 					this.getIterLocation(iter, location);
 					this.bufferToWindowCoords(GtkTextWindowType.LEFT,
 						0, location.y + location.height, endX, endY);
-					this.postLengths[post] = endY - this.postOffsets[post];
+					this.postEndOffsets[post] = location.y + location.height;
 				}
 
-				context.moveTo(2, this.postOffsets[post] - scrollHeight);
-				context.lineTo(2, this.postOffsets[post] + this.postLengths[post] - scrollHeight);
+				context.moveTo(1, this.postOffsets[post] - scrollHeight);
+				context.lineTo(1, this.postEndOffsets[post] - scrollHeight);
 				context.stroke();
 			}
 
@@ -434,12 +439,7 @@ class TribuneViewer : TextView {
 
 		this.postBegins[post] = buffer.createMark(post.id, iter, true);
 
-		string[] mine;
-		if (post.post.mine) {
-			mine ~= "mine";
-		} else if (post.answer) {
-			mine ~= "answer";
-		}
+		buffer.insert(iter, " ");
 		buffer.insertWithTagsByName(iter, post.post.clock, ["mainclock"]);
 		buffer.insert(iter, " ");
 		if (post.post.login) {
