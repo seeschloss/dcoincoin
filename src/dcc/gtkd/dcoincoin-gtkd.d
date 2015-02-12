@@ -488,7 +488,7 @@ class GtkUI : MainWindow {
 	}
 
 	void onPostHighlight(GtkPost post) {
-		writeln("Highlighting post ", post.post);
+		//writeln("Highlighting post ", post.post);
 		this.preview.renderPost(post);
 	}
 
