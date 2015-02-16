@@ -1,5 +1,7 @@
 module dcc.gtkd.tribuneviewer;
 
+private import gtkc.gtk;
+
 private import std.stdio;
 private import std.signals;
 private import std.conv;
@@ -57,7 +59,91 @@ class TribuneViewer : TextView {
 	uint[GtkPost] postOffsets;
 	uint[GtkPost] postEndOffsets;
 
+	bool onDraw() {
+		// Draw coloured lines in the left margin to indicate post ownership
+		auto context = this.getWindow(GtkTextWindowType.WIDGET).createContext();
+		context.setLineWidth(2);
+
+		Rectangle visible;
+		this.getVisibleRect(visible);
+
+		TextIter iter = new TextIter();
+		Rectangle location;
+		int startX, startY, endX, endY;
+		TextBuffer buffer = this.getBuffer();
+
+		auto scrollHeight = this.getVadjustment().getValue();
+
+		int lineHeight = 0;
+
+		foreach (string post_id, GtkPost post; this.posts) {
+			if (post.post.mine) {
+				context.setSourceRgb(0.5, 0.2, 0.2);
+			} else if (post.answer) {
+				context.setSourceRgb(1, 0.2, 0.2);
+			} else {
+				if (post.tribune !in this.tribuneColors) {
+					Color color = new Color();
+					Color.parse(post.tribune.color, color);
+					this.tribuneColors[post.tribune] = color;
+				}
+
+				context.setSourceRgb(
+					cast(double)this.tribuneColors[post.tribune].red/ushort.max,
+					cast(double)this.tribuneColors[post.tribune].green/ushort.max,
+					cast(double)this.tribuneColors[post.tribune].blue/ushort.max,
+				);
+			}
+
+			buffer.getIterAtMark(iter, this.postEnds[post]);
+
+			if (lineHeight == 0) {
+				this.getIterLocation(iter, location);
+				lineHeight = location.height;
+			}
+
+			// This complicated stuff is necessary because getIterAtMark is *very* slow,
+			// too slow to call it at each draw
+			if (post !in this.postOffsets) {
+				buffer.getIterAtMark(iter, this.postBegins[post]);
+				this.getIterLocation(iter, location);
+				this.bufferToWindowCoords(GtkTextWindowType.LEFT,
+					0, location.y, startX, startY);
+
+				// For some reason, iters that are after the visible area are misplaced
+				// so we'll wait until they get visible to get their location
+				if (location.y > visible.y + visible.height) {
+					continue;
+				}
+				this.postOffsets[post] = location.y;
+			}
+
+			if (post !in this.postEndOffsets) {
+				buffer.getIterAtMark(iter, this.postEnds[post]);
+				this.getIterLocation(iter, location);
+				this.bufferToWindowCoords(GtkTextWindowType.LEFT,
+					0, location.y + location.height, endX, endY);
+				this.postEndOffsets[post] = location.y + location.height;
+			}
+
+			context.moveTo(1, this.postOffsets[post] - scrollHeight);
+			context.lineTo(1, this.postEndOffsets[post] - scrollHeight);
+			context.stroke();
+		}
+
+		context.destroy();
+		delete context;
+	
+		return false;
+	}
+
+	extern(C) static gboolean onDrawCallback(GtkWidget* widgetStruct, CairoContext* cr, Widget _widget)
+	{
+		return (cast(TribuneViewer)_widget).onDraw();
+	}
+
 	this() {
+
 		this.setEditable(false);
 		this.setCursorVisible(false);
 		this.setWrapMode(WrapMode.WORD);
@@ -92,83 +178,13 @@ class TribuneViewer : TextView {
 
 		this.setBorderWindowSize(GtkTextWindowType.LEFT, 2);
 
-		// Draw coloured lines in the left margin to indicate post ownership
-		this.addOnDraw((Context c, Widget widget) {
-			auto context = (cast(TextView)widget).getWindow(GtkTextWindowType.WIDGET).createContext();
-			context.setLineWidth(2);
-
-			Rectangle visible;
-			this.getVisibleRect(visible);
-
-			TextIter iter = new TextIter();
-			Rectangle location;
-			int startX, startY, endX, endY;
-			TextBuffer buffer = this.getBuffer();
-
-			auto scrollHeight = this.getVadjustment().getValue();
-
-			int lineHeight = 0;
-
-			foreach (string post_id, GtkPost post; this.posts) {
-				if (post.post.mine) {
-					context.setSourceRgb(0.5, 0.2, 0.2);
-				} else if (post.answer) {
-					context.setSourceRgb(1, 0.2, 0.2);
-				} else {
-					if (post.tribune !in this.tribuneColors) {
-						Color color = new Color();
-						Color.parse(post.tribune.color, color);
-						this.tribuneColors[post.tribune] = color;
-					}
-
-					context.setSourceRgb(
-						cast(double)this.tribuneColors[post.tribune].red/ushort.max,
-						cast(double)this.tribuneColors[post.tribune].green/ushort.max,
-						cast(double)this.tribuneColors[post.tribune].blue/ushort.max,
-					);
-				}
-
-				buffer.getIterAtMark(iter, this.postEnds[post]);
-
-				if (lineHeight == 0) {
-					this.getIterLocation(iter, location);
-					lineHeight = location.height;
-				}
-
-				// This complicated stuff is necessary because getIterAtMark is *very* slow,
-				// too slow to call it at each draw
-				if (post !in this.postOffsets) {
-					buffer.getIterAtMark(iter, this.postBegins[post]);
-					this.getIterLocation(iter, location);
-					this.bufferToWindowCoords(GtkTextWindowType.LEFT,
-						0, location.y, startX, startY);
-
-					// For some reason, iters that are after the visible area are misplaced
-					// so we'll wait until they get visible to get their location
-					if (location.y > visible.y + visible.height) {
-						continue;
-					}
-					this.postOffsets[post] = location.y;
-				}
-
-				if (post !in this.postEndOffsets) {
-					buffer.getIterAtMark(iter, this.postEnds[post]);
-					this.getIterLocation(iter, location);
-					this.bufferToWindowCoords(GtkTextWindowType.LEFT,
-						0, location.y + location.height, endX, endY);
-					this.postEndOffsets[post] = location.y + location.height;
-				}
-
-				context.moveTo(1, this.postOffsets[post] - scrollHeight);
-				context.lineTo(1, this.postEndOffsets[post] - scrollHeight);
-				context.stroke();
-			}
-
-			context.destroy();
-
-			return false;
-		});
-
+		Signals.connectData(
+			this.getStruct(),
+			"draw",
+			cast(GCallback)&this.onDrawCallback,
+			cast(void*)this,
+			null,
+			cast(ConnectFlags)0);
 	}
 
 	bool onClick(Event event, Widget viewer) {
