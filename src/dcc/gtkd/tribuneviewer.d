@@ -54,6 +54,7 @@ class TribuneViewer : TextView {
 	mixin Signal!(GtkPost, GtkPostSegment) postSegmentHover;
 
 	mixin Signal!(GtkPost) postHighlight;
+	mixin Signal!() resetHighlight;
 
 	Color[GtkTribune] tribuneColors;
 	uint[GtkPost] postOffsets;
@@ -223,6 +224,8 @@ class TribuneViewer : TextView {
 	}
 
 	void unHighlightEverything() {
+		this.resetHighlight.emit();
+
 		foreach (GtkPost post ; this.highlightedPosts.dup) {
 			this.unHighlightPost(post);
 		}

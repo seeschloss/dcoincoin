@@ -189,6 +189,8 @@ class GtkUI : MainWindow {
 		}
 
 		this.preview.tribunes = this.tribunes.values;
+		this.preview.setBorderWindowSize(GtkTextWindowType.BOTTOM, 2);
+		this.preview.hide();
 
 		Box mainBox = new Box(GtkOrientation.VERTICAL, 0);
 		mainBox.packStart(makeMenuBar(), false, false, 0);
@@ -201,13 +203,7 @@ class GtkUI : MainWindow {
 
 		this.overlay = new Overlay();
 		this.overlay.add(scrolledWindow);
-		this.overlay.addOnGetChildPosition((Widget widget, GdkRectangle* rectangle, Overlay overlay) {
-				rectangle.x = 0;
-				rectangle.y = 0;
-				rectangle.width = 100;
-				rectangle.height = 100;
-			return true;
-		});
+		this.overlay.addOverlay(this.preview);
 
 		paned.add2(this.overlay);
 
@@ -458,6 +454,7 @@ class GtkUI : MainWindow {
 		viewer.postSegmentClick.connect(&onPostSegmentClick);
 
 		viewer.postHighlight.connect(&onPostHighlight);
+		viewer.resetHighlight.connect(&onResetHighlight);
 
 		viewer.tribunes = this.tribunes.values;
 
@@ -491,8 +488,13 @@ class GtkUI : MainWindow {
 	}
 
 	void onPostHighlight(GtkPost post) {
-		//writeln("Highlighting post ", post.post);
+		this.preview.getBuffer.setText("");
 		this.preview.renderPost(post);
+		this.preview.show();
+	}
+
+	void onResetHighlight() {
+		this.preview.hide();
 	}
 
 	MenuBar makeMenuBar() {
