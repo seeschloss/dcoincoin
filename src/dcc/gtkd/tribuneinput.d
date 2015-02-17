@@ -30,6 +30,8 @@ class TribuneInput : TextView {
 
 		this.css = new CssProvider();
 		this.getStyleContext().addProvider(css, 600);
+
+		this.setBorderWindowSize(GtkTextWindowType.TOP, 2);
 	}
 
 	int lineHeight() {
@@ -50,6 +52,7 @@ class TribuneInput : TextView {
 
 		this.css.loadFromData(format(`
 			#TribuneInput {
+				margin-top: 2px;
 				background-color: %s;
 			}
 		`, tribune.color));

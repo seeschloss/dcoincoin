@@ -33,14 +33,17 @@ private import dcc.engine.tribune;
 private import dcc.gtkd.post;
 private import dcc.gtkd.main;
 
-class TribuneViewer : TextView {
-	private TextMark begin, end;
+class TribunePreviewer : TribuneViewer {
+	this() {
+		super();
 
-	public GtkTribune[] tribunes;
+		this.setValign(GtkAlign.START);
+		this.setBorderWindowSize(GtkTextWindowType.BOTTOM, 2);
+		this.hide();
+	}
+}
 
-	private GtkPost[string] posts;
-	private GtkPost[][SysTime] timestamps;
-
+class TribuneMainViewer : TribuneViewer {
 	private GtkPost[string] highlightedPosts;
 	private GtkPostSegment[GtkPostSegment] highlightedPostSegments;
 
@@ -55,10 +58,6 @@ class TribuneViewer : TextView {
 
 	mixin Signal!(GtkPost) postHighlight;
 	mixin Signal!() resetHighlight;
-
-	Color[GtkTribune] tribuneColors;
-	uint[GtkPost] postOffsets;
-	uint[GtkPost] postEndOffsets;
 
 	bool onDraw() {
 		// Draw coloured lines in the left margin to indicate post ownership
@@ -138,41 +137,16 @@ class TribuneViewer : TextView {
 		return false;
 	}
 
-	extern(C) static gboolean onDrawCallback(GtkWidget* widgetStruct, CairoContext* cr, Widget _widget)
-	{
-		return (cast(TribuneViewer)_widget).onDraw();
+	extern(C) static gboolean onDrawCallback(GtkWidget* widgetStruct, CairoContext* cr, Widget _widget) {
+		return (cast(TribuneMainViewer)_widget).onDraw();
 	}
 
 	this() {
+		super();
 
-		this.setEditable(false);
-		this.setCursorVisible(false);
-		this.setWrapMode(WrapMode.WORD);
 		this.setIndent(-12);
 
-		TextBuffer buffer = this.getBuffer();
-
-		buffer.createTag("mainclock", "foreground-gdk", new Color(50, 50, 50));
-
-		buffer.createTag("login", "weight", PangoWeight.BOLD , "foreground-gdk", new Color(0, 0, 100));
-		buffer.createTag("info",  "style" , PangoStyle.ITALIC, "foreground-gdk", new Color(0, 0, 100));
-
-		buffer.createTag("clock", "weight", PangoWeight.BOLD , "foreground-gdk", new Color(0, 0, 100));
-
-		buffer.createTag("a", "weight"       , PangoWeight.BOLD,
-		                      "underline"    , PangoUnderline.SINGLE,
-		                      "foreground-gdk", new Color(0, 0, 100));
-
-		buffer.createTag("b", "weight"       , PangoWeight.BOLD);
-		buffer.createTag("i", "style"        , PangoStyle.ITALIC);
-		buffer.createTag("u", "underline"    , PangoUnderline.SINGLE);
-		buffer.createTag("s", "strikethrough", 1);
-
-		buffer.createTag("highlightedpost", "background", "white");
-
-		TextIter iter = new TextIter();
-		buffer.getEndIter(iter);
-		buffer.createMark("end", iter, false);
+		this.getBuffer().createTag("highlightedpost", "background", "white");
 
 		this.addOnButtonRelease(&this.onClick);
 		this.addOnMotionNotify(&this.onMotion);
@@ -217,10 +191,6 @@ class TribuneViewer : TextView {
 		}
 
 		return false;
-	}
-
-	void scrollToPost(GtkPost post) {
-		this.scrollMarkOnscreen(this.postBegins[post]);
 	}
 
 	void unHighlightEverything() {
@@ -293,28 +263,6 @@ class TribuneViewer : TextView {
 		}
 	}
 
-	GtkPost[] findPostsByClock(GtkPostSegment segment) {
-		GtkPost[] posts;
-
-		foreach (GtkTribune tribune ; this.tribunes) {
-			if (tribune.tribune.matches_name(segment.context.clock.tribune)) {
-				posts ~= tribune.findPostsByClock(segment);
-			}
-		}
-
-		return posts;
-	}
-
-	GtkPostSegment[] findReferencesToPost(GtkPost post) {
-		GtkPostSegment[] segments;
-
-		foreach (GtkTribune tribune ; this.tribunes) {
-			segments ~= tribune.findReferencesToPost(post);
-		}
-
-		return segments;
-	}
-
 	void highlightClock(GtkPostSegment segment) {
 		this.highlightPostSegment(segment);
 
@@ -364,6 +312,74 @@ class TribuneViewer : TextView {
 		this.getWindow(GtkTextWindowType.TEXT).setCursor(new Cursor(cursor));
 
 		return false;
+	}
+}
+
+class TribuneViewer : TextView {
+	private TextMark begin, end;
+
+	public GtkTribune[] tribunes;
+
+	private GtkPost[string] posts;
+	private GtkPost[][SysTime] timestamps;
+
+
+	Color[GtkTribune] tribuneColors;
+	uint[GtkPost] postOffsets;
+	uint[GtkPost] postEndOffsets;
+
+	this() {
+		this.setEditable(false);
+		this.setCursorVisible(false);
+		this.setWrapMode(WrapMode.WORD);
+
+		TextBuffer buffer = this.getBuffer();
+
+		buffer.createTag("mainclock", "foreground-gdk", new Color(50, 50, 50));
+
+		buffer.createTag("login", "weight", PangoWeight.BOLD , "foreground-gdk", new Color(0, 0, 100));
+		buffer.createTag("info",  "style" , PangoStyle.ITALIC, "foreground-gdk", new Color(0, 0, 100));
+
+		buffer.createTag("clock", "weight", PangoWeight.BOLD , "foreground-gdk", new Color(0, 0, 100));
+
+		buffer.createTag("a", "weight"       , PangoWeight.BOLD,
+		                      "underline"    , PangoUnderline.SINGLE,
+		                      "foreground-gdk", new Color(0, 0, 100));
+
+		buffer.createTag("b", "weight"       , PangoWeight.BOLD);
+		buffer.createTag("i", "style"        , PangoStyle.ITALIC);
+		buffer.createTag("u", "underline"    , PangoUnderline.SINGLE);
+		buffer.createTag("s", "strikethrough", 1);
+
+		TextIter iter = new TextIter();
+		buffer.getEndIter(iter);
+		buffer.createMark("end", iter, false);
+	}
+
+	void scrollToPost(GtkPost post) {
+		this.scrollMarkOnscreen(this.postBegins[post]);
+	}
+
+	GtkPost[] findPostsByClock(GtkPostSegment segment) {
+		GtkPost[] posts;
+
+		foreach (GtkTribune tribune ; this.tribunes) {
+			if (tribune.tribune.matches_name(segment.context.clock.tribune)) {
+				posts ~= tribune.findPostsByClock(segment);
+			}
+		}
+
+		return posts;
+	}
+
+	GtkPostSegment[] findReferencesToPost(GtkPost post) {
+		GtkPostSegment[] segments;
+
+		foreach (GtkTribune tribune ; this.tribunes) {
+			segments ~= tribune.findReferencesToPost(post);
+		}
+
+		return segments;
 	}
 
 	public GtkPost getPostAtIter(TextIter position) {
@@ -421,30 +437,6 @@ class TribuneViewer : TextView {
 	TextMark[GtkPost] postEnds;
 	TextMark[GtkPostSegment] segmentBegins;
 	TextMark[GtkPostSegment] segmentEnds;
-
-	int postStartY(GtkPost post) {
-		TextIter iter = new TextIter();
-		Rectangle location;
-		this.getBuffer().getIterAtMark(iter, this.postBegins[post]);
-		this.getIterLocation(iter, location);
-
-		int startX, startY;
-		this.bufferToWindowCoords(GtkTextWindowType.LEFT, 0, location.y, startX, startY);
-
-		return startY;
-	}
-
-	int postEndY(GtkPost post) {
-		TextIter iter = new TextIter();
-		Rectangle location;
-		this.getBuffer().getIterAtMark(iter, this.postEnds[post]);
-		this.getIterLocation(iter, location);
-
-		int endX, endY;
-		this.bufferToWindowCoords(GtkTextWindowType.LEFT, 0, location.y + location.height, endX, endY);
-
-		return endY;
-	}
 
 	void renderPost(GtkPost post) {
 		GtkPostSegment[] segments = post.segments();

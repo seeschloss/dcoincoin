@@ -130,13 +130,13 @@ class GtkUI : MainWindow {
 	string[] tribune_names;
 	GtkTribune currentTribune;
 
-	TribuneViewer viewer;
+	TribuneMainViewer viewer;
 	TribuneInput input;
 	ScrolledWindow inputScroll;
 	TreeView tribunesList;
 	ListStore tribunesListStore;
 	Overlay overlay;
-	TribuneViewer preview;
+	TribunePreviewer preview;
 
 	GtkPost latestPost;
 
@@ -187,17 +187,8 @@ class GtkUI : MainWindow {
 	}
 
 	void setup() {
-		this.viewer = this.makeTribuneViewer();
-		this.preview = new TribuneViewer();
-		this.preview.setValign(GtkAlign.START);
-
-		foreach (GtkTribune gtkTribune; this.tribunes) {
-			this.preview.registerTribune(gtkTribune);
-		}
-
-		this.preview.tribunes = this.tribunes.values;
-		this.preview.setBorderWindowSize(GtkTextWindowType.BOTTOM, 2);
-		this.preview.hide();
+		this.viewer = this.makeTribuneMainViewer();
+		this.preview = this.makeTribunePreviewer();
 
 		Box mainBox = new Box(GtkOrientation.VERTICAL, 0);
 		mainBox.packStart(makeMenuBar(), false, false, 0);
@@ -449,8 +440,8 @@ class GtkUI : MainWindow {
 		this.input.setCurrentTribune(tribune);
 	}
 
-	TribuneViewer makeTribuneViewer() {
-		TribuneViewer viewer = new TribuneViewer();
+	TribuneMainViewer makeTribuneMainViewer() {
+		TribuneMainViewer viewer = new TribuneMainViewer();
 
 		foreach (GtkTribune gtkTribune; this.tribunes) {
 			viewer.registerTribune(gtkTribune);
@@ -470,6 +461,18 @@ class GtkUI : MainWindow {
 		});
 
 		return viewer;
+	}
+
+	TribunePreviewer makeTribunePreviewer() {
+		auto preview = new TribunePreviewer();
+
+		foreach (GtkTribune gtkTribune; this.tribunes) {
+			preview.registerTribune(gtkTribune);
+		}
+
+		preview.tribunes = this.tribunes.values;
+
+		return preview;
 	}
 
 	void onPostClockClick(GtkPost post) {
