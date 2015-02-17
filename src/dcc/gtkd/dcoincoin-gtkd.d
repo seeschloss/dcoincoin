@@ -447,6 +447,9 @@ class GtkUI : MainWindow {
 			viewer.registerTribune(gtkTribune);
 		}
 
+		viewer.postClockHover.connect(&onPostClockHover);
+		viewer.postSegmentHover.connect(&onPostSegmentHover);
+
 		viewer.postClockClick.connect(&onPostClockClick);
 		viewer.postLoginClick.connect(&onPostLoginClick);
 		viewer.postSegmentClick.connect(&onPostSegmentClick);
@@ -475,6 +478,18 @@ class GtkUI : MainWindow {
 		return preview;
 	}
 
+	void onPostClockHover(GtkPost post) {
+		this.preview.postInfo(post);
+		this.preview.show();
+	}
+
+	void onPostSegmentHover(GtkPost post, GtkPostSegment segment) {
+		if (segment.context.link) {
+			this.preview.showUrl(segment.context.link_target);
+			this.preview.show();
+		}
+	}
+
 	void onPostClockClick(GtkPost post) {
 		writeln("Clicked on clock: ", post.post.clock);
 		this.setCurrentTribune(post.tribune);
@@ -498,7 +513,6 @@ class GtkUI : MainWindow {
 	}
 
 	void onPostHighlight(GtkPost post) {
-		this.preview.getBuffer.setText("");
 		this.preview.renderPost(post);
 		this.preview.show();
 	}

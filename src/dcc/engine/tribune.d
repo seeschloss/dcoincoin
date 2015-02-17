@@ -240,9 +240,9 @@ class Post {
 	SysTime time;
 	SysTime real_time;
 
-	string info;
-	string message;
-	string login;
+	string info = "";
+	string message = "";
+	string login = "";
 
 	int index = 0;
 
@@ -352,6 +352,49 @@ class Post {
 
 	string tribune_time() {
 		return format("%04d%02d%02d%02d%02d%02d", this.time.year, this.time.month, this.time.day, this.time.hour, this.time.minute, this.time.second);
+	}
+
+	string unicodeClock() {
+		switch (this.time.hour) {
+			case 0:
+			case 12:
+				return this.time.minute < 30 ? "🕛" : "🕧";
+			case 1:
+			case 13:
+				return this.time.minute < 30 ? "🕐" : "🕜";
+			case 2:
+			case 14:
+				return this.time.minute < 30 ? "🕑" : "🕝";
+			case 3:
+			case 15:
+				return this.time.minute < 30 ? "🕒" : "🕞";
+			case 4:
+			case 16:
+				return this.time.minute < 30 ? "🕓" : "🕟";
+			case 5:
+			case 17:
+				return this.time.minute < 30 ? "🕔" : "🕠";
+			case 6:
+			case 18:
+				return this.time.minute < 30 ? "🕕" : "🕡";
+			case 7:
+			case 19:
+				return this.time.minute < 30 ? "🕖" : "🕢";
+			case 8:
+			case 20:
+				return this.time.minute < 30 ? "🕗" : "🕣";
+			case 9:
+			case 21:
+				return this.time.minute < 30 ? "🕘" : "🕤";
+			case 10:
+			case 22:
+				return this.time.minute < 30 ? "🕙" : "🕥";
+			case 11:
+			case 23:
+				return this.time.minute < 30 ? "🕚" : "🕦";
+			default:
+				return "🕓";
+		}
 	}
 
 	string clock_ref() {

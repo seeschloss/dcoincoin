@@ -16,7 +16,9 @@ struct GtkPostSegmentContext {
 		 strike = false,
 		 fixed = false,
 		 link = false,
-		 totoz = false;
+		 totoz = false,
+		 login = false,
+		 mainClock = false;
 
 	Clock clock;
 
@@ -28,6 +30,7 @@ class GtkPostSegment {
 	string text;
 
 	GtkPost post;
+	uint offset;
 }
 
 class GtkPost {
@@ -66,13 +69,13 @@ class GtkPost {
 	}
 
 	GtkPostSegment getSegmentAt(int offset) {
-		foreach (int position, GtkPostSegment segment; this.segmentIndices) {
-			if (position <= offset && position + segment.text.length > offset) {
+		foreach (GtkPostSegment segment; this._segments) {
+			if (segment.offset <= offset && segment.offset + segment.text.count > offset) {
 				return segment;
 			}
 		}
 
-		return GtkPostSegment.init;
+		return null;
 	}
 
 	GtkPostSegment[] segments() {
@@ -84,12 +87,15 @@ class GtkPost {
 
 		int offset = 0;
 
-		GtkPostSegmentContext context;
+		GtkPostSegmentContext context, previousContext;
 		foreach (int i, string sub; tokens) {
 			GtkPostSegment segment = new GtkPostSegment();
 			segment.post = this;
+			segment.offset = offset;
 
 			bool is_clock = false;
+
+			previousContext = context;
 
 			foreach (Clock post_clock; this.post.clocks) {
 				if (sub.strip == post_clock.text) {
@@ -135,11 +141,18 @@ class GtkPost {
 
 			if (context.link && segment.text) {
 				context.link_target ~= segment.text;
-				segment.text = "[url]";
 			}
 			segment.context = context;
 
-			if (segment.text) {
+			if (!context.link && context.link_target.length > 0) {
+				// The link has been completely parsed
+				segment.text = "[url]";
+				segment.context.link = true;
+				context.link_target = "";
+			}
+			
+			if (segment.text && !context.link) {
+				// This is a regular segment
 				this._segments ~= segment;
 				offset += segment.text.count;
 			}

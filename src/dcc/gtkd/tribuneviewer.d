@@ -5,6 +5,7 @@ private import gtkc.gtk;
 private import std.stdio;
 private import std.signals;
 private import std.conv;
+private import std.string : format;
 private import std.algorithm;
 private import std.datetime : SysTime;
 
@@ -14,6 +15,7 @@ private import gtk.TextIter;
 private import gtk.TextMark;
 private import gtk.Widget;
 private import gtk.Window;
+private import gtk.CssProvider;
 
 private import gtkc.gtktypes;
 
@@ -37,9 +39,132 @@ class TribunePreviewer : TribuneViewer {
 	this() {
 		super();
 
+		this.getBuffer().createTag("status", "paragraph-background", "lightgrey");
+		this.getBuffer().createTag("light", "foreground", "grey", "weight", PangoWeight.NORMAL);
+
 		this.setValign(GtkAlign.START);
 		this.setBorderWindowSize(GtkTextWindowType.BOTTOM, 2);
+		this.setBorderWindowSize(GtkTextWindowType.LEFT, 2);
+		this.setBorderWindowSize(GtkTextWindowType.RIGHT, 2);
 		this.hide();
+
+		this.setName("TribunePreview");
+		auto css = new CssProvider();
+		this.getStyleContext().addProvider(css, 600);
+		css.loadFromData(`
+			#TribunePreview {
+				background-color: #EEEEEE;
+			}
+		`);
+
+		Signals.connectData(
+			this.getStruct(),
+			"draw",
+			cast(GCallback)&this.onDrawCallback,
+			cast(void*)this,
+			null,
+			cast(ConnectFlags)0);
+	}
+
+	private void reset(T)(T p) {
+		p = T.init;
+	}
+
+	void empty() {
+		super.clearCache();
+		this.reset(this.posts);
+		this.reset(this.postBegins);
+		this.reset(this.postEnds);
+		this.reset(this.segmentBegins);
+		this.reset(this.segmentEnds);
+		this.reset(this.postSegmentsOffsets);
+		this.getBuffer().setText("");
+	}
+
+	override void renderPost(GtkPost post) {
+		this.empty();
+
+		this.setLeftMargin(0);
+		this.setRightMargin(0);
+
+		super.renderPost(post);
+	}
+
+	void showUrl(string url) {
+		this.empty();
+
+		this.setLeftMargin(5);
+		this.setRightMargin(5);
+
+		TextIter iter = new TextIter();
+		auto buffer = this.getBuffer();
+		buffer.getStartIter(iter);
+
+		buffer.insert(iter, url);
+	}
+
+	void postInfo(GtkPost post) {
+		this.empty();
+
+		this.setLeftMargin(5);
+		this.setRightMargin(5);
+
+		TextIter iter = new TextIter();
+		auto buffer = this.getBuffer();
+		buffer.getStartIter(iter);
+
+		buffer.insertWithTagsByName(iter, "#", ["light"]);
+		buffer.insertWithTagsByName(iter, format("%s", post.post.post_id), ["b"]);
+
+		buffer.insertWithTagsByName(iter, "   @", ["light"]);
+		buffer.insertWithTagsByName(iter, format("%s", post.post.tribune.name), ["b"]);
+
+		buffer.insertWithTagsByName(iter, "   " ~ post.post.unicodeClock, ["light"]);
+		buffer.insertWithTagsByName(iter,
+			format("%04d-%02d-%02d %02d:%02d:%02d",
+				post.post.time.year,
+				post.post.time.month,
+				post.post.time.day,
+				post.post.time.hour,
+				post.post.time.minute,
+				post.post.time.second)
+			, ["b"]);
+
+		buffer.insert(iter, "\n");
+
+		buffer.insert(iter, "User-Agent: ");
+		buffer.insertWithTagsByName(iter, format("%s", post.post.info), ["i"]);
+
+		buffer.insert(iter, "\n");
+		if (post.post.login.length > 0) {
+			buffer.insert(iter, "Login: ");
+			buffer.insertWithTagsByName(iter, format("%s", post.post.login), ["b"]);
+		} else {
+			buffer.insertWithTagsByName(iter, "(anonymous)", ["i"]);
+		}
+	}
+
+	bool onDraw() {
+		auto context = this.getWindow(GtkTextWindowType.WIDGET).createContext();
+		context.setLineWidth(8);
+
+		Rectangle visible;
+		this.getVisibleRect(visible);
+
+		context.setSourceRgb(0, 0, 0);
+		context.moveTo(visible.x, visible.y);
+		context.lineTo(visible.x, visible.y + visible.height);
+		context.lineTo(visible.x + visible.width, visible.y + visible.height);
+		context.lineTo(visible.x + visible.width, visible.y);
+		context.stroke();
+
+		delete context;
+	
+		return false;
+	}
+
+	extern(C) static gboolean onDrawCallback(GtkWidget* widgetStruct, CairoContext* cr, Widget _widget) {
+		return (cast(TribunePreviewer)_widget).onDraw();
 	}
 }
 
@@ -131,7 +256,6 @@ class TribuneMainViewer : TribuneViewer {
 			context.stroke();
 		}
 
-		context.destroy();
 		delete context;
 	
 		return false;
@@ -176,7 +300,7 @@ class TribuneMainViewer : TribuneViewer {
 			if (offset <= 8) {
 				this.postClockClick.emit(post);
 			} else {
-				GtkPostSegment segment = post.getSegmentAt(offset);
+				GtkPostSegment segment = post.getSegmentAt(offset - this.postSegmentsOffsets[post]);
 				if (segment && segment.text && segment.text.length) {
 					this.postSegmentClick.emit(post, segment);
 					if (segment.context.clock != Clock.init) {
@@ -184,7 +308,7 @@ class TribuneMainViewer : TribuneViewer {
 							this.scrollToPost(found_post);
 						}
 					}
-				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
+				} else if (offset > 9) {
 					this.postLoginClick.emit(post);
 				}
 			}
@@ -227,13 +351,27 @@ class TribuneMainViewer : TribuneViewer {
 
 			this.getBuffer().getIterAtMark(beginIter, this.postBegins[post]);
 			this.getBuffer().getIterAtMark(endIter, this.postEnds[post]);
-
 			this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
+
 			this.highlightedPosts[post.id] = post;
 
-			foreach (GtkPostSegment found_segment; this.findReferencesToPost(post)) {
-				this.highlightPostSegment(found_segment);
-			}
+			this.highlightPostAnswers(post);
+		}
+	}
+
+	void highlightPostAnswers(GtkPost post) {
+		TextIter beginIter = new TextIter();
+		TextIter endIter = new TextIter();
+
+		this.getBuffer().getIterAtMark(beginIter, this.postBegins[post]);
+		this.getBuffer().getIterAtMark(endIter, this.postBegins[post]);
+		endIter.setLineOffset(10);
+
+		this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
+		this.highlightedPosts[post.id] = post;
+
+		foreach (GtkPostSegment found_segment; this.findReferencesToPost(post)) {
+			this.highlightPostSegment(found_segment);
 		}
 	}
 
@@ -289,10 +427,10 @@ class TribuneMainViewer : TribuneViewer {
 			int offset = position.getLineOffset();
 			if (offset <= 8) {
 				cursor = GdkCursorType.HAND2;
-				this.highlightPost(post);
+				this.highlightPostAnswers(post);
 				this.postClockHover.emit(post);
 			} else {
-				GtkPostSegment segment = post.getSegmentAt(offset);
+				GtkPostSegment segment = post.getSegmentAt(offset - this.postSegmentsOffsets[post]);
 				if (segment && segment.text && segment.text.length) {
 					if (segment.context.clock != Clock.init) {
 						cursor = GdkCursorType.HAND2;
@@ -301,7 +439,7 @@ class TribuneMainViewer : TribuneViewer {
 						cursor = GdkCursorType.HAND2;
 					}
 					this.postSegmentHover.emit(post, segment);
-				} else if (offset > 9 && offset < post.segmentIndices.keys[0] - 1) {
+				} else if (offset > 9) {
 					cursor = GdkCursorType.HAND2;
 					this.postLoginHover.emit(post);
 				}
@@ -361,7 +499,6 @@ class TribuneViewer : TextView {
 	}
 
 	void clearCache() {
-		writeln("Resetting caches");
 		this.postOffsets = typeof(this.postOffsets).init;
 		this.postEndOffsets = typeof(this.postEndOffsets).init;
 	}
@@ -443,6 +580,7 @@ class TribuneViewer : TextView {
 	TextMark[GtkPost] postEnds;
 	TextMark[GtkPostSegment] segmentBegins;
 	TextMark[GtkPostSegment] segmentEnds;
+	int[GtkPost] postSegmentsOffsets;
 
 	void renderPost(GtkPost post) {
 		GtkPostSegment[] segments = post.segments();
@@ -468,12 +606,9 @@ class TribuneViewer : TextView {
 		}
 		buffer.insert(iter, " ");
 
-		int postStart = iter.getLineOffset();
+		this.postSegmentsOffsets[post] = iter.getLineOffset();
 
 		foreach (int i, GtkPostSegment segment; segments) {
-			int segmentStart = iter.getLineOffset();
-			post.segmentIndices[segmentStart] = segment;
-
 			TextMark startMark = buffer.createMark("start", iter, true);
 			TextMark endMark = buffer.createMark("start", iter, false);
 			this.segmentBegins[segment] = buffer.createMark("start-" ~ post.id ~ ":" ~ to!string(i), iter, true);
