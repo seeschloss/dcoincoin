@@ -32,7 +32,7 @@
 			"targetType": "executable",
 			"mainSourceFile": "src/dcc/gtkd/dcoincoin-gtkd.d",
 			"excludedSourceFiles": ["src/dcc/cli/*", "src/dcc/curses/*"],
-			"dependencies": {"gtk-d": ">=2.4.2"}
+			"dependencies": {"gtk-d:gtkd": ">=2.4.2"}
 		}
 	]
 }
