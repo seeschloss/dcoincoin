@@ -308,7 +308,7 @@ class TribuneMainViewer : TribuneViewer {
 							this.scrollToPost(found_post);
 						}
 					}
-				} else if (offset > 9) {
+				} else if (offset > 9 && offset < this.postSegmentsOffsets[post]) {
 					this.postLoginClick.emit(post);
 				}
 			}
@@ -439,7 +439,7 @@ class TribuneMainViewer : TribuneViewer {
 						cursor = GdkCursorType.HAND2;
 					}
 					this.postSegmentHover.emit(post, segment);
-				} else if (offset > 9) {
+				} else if (offset > 9 && offset < this.postSegmentsOffsets[post]) {
 					cursor = GdkCursorType.HAND2;
 					this.postLoginHover.emit(post);
 				}
