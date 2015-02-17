@@ -172,6 +172,13 @@ class GtkUI : MainWindow {
 		t.start();
 
 		this.setCurrentTribune(this.tribunes.values[$-1]);
+
+		this.addOnDestroy((Widget widget) {
+			foreach (GtkTribune tribune ; this.tribunes) {
+				tribune.stopReloadThread();
+				writeln("Stopped tribune ", tribune.tribune.name);
+			}
+		});
 	}
 
 	override void showAll() {
@@ -627,6 +634,8 @@ class GtkTribune {
 
 		uint remaining;
 
+		bool exit = false;
+
 		this(GtkTribune tribune, uint timeout) {
 			this.tribune = tribune;
 			this.timeout = timeout;
@@ -635,13 +644,16 @@ class GtkTribune {
 		}
 
 		void run() {
-			while (true) {
-				while (this.remaining > 0) {
+			while (!this.exit) {
+				while (this.remaining > 0 && !this.exit) {
 					this.remaining--;
 					core.thread.Thread.sleep(100.msecs);
 				}
-				this.resetRemaining();
-				this.reload();
+
+				if (!this.exit) {
+					this.resetRemaining();
+					this.reload();
+				}
 			}
 		}
 
@@ -658,6 +670,11 @@ class GtkTribune {
 				tribune.fetch_posts();
 			}
 		}
+	}
+
+	void stopReloadThread() {
+		this.reloadThread.exit = true;
+		this.reloadThread.join();
 	}
 
 	void launchReloadThread() {
