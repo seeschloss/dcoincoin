@@ -457,7 +457,7 @@ class GtkUI : MainWindow {
 		viewer.tribunes = this.tribunes.values;
 
 		viewer.addOnSizeAllocate((GdkRectangle* rect, Widget widget) {
-			//viewer.scrollToEnd();
+			viewer.clearCache();
 		});
 
 		return viewer;

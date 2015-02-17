@@ -360,6 +360,12 @@ class TribuneViewer : TextView {
 		this.scrollMarkOnscreen(this.postBegins[post]);
 	}
 
+	void clearCache() {
+		writeln("Resetting caches");
+		this.postOffsets = typeof(this.postOffsets).init;
+		this.postEndOffsets = typeof(this.postEndOffsets).init;
+	}
+
 	GtkPost[] findPostsByClock(GtkPostSegment segment) {
 		GtkPost[] posts;
 
