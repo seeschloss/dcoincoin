@@ -495,7 +495,7 @@ class TribuneViewer : TextView {
 	}
 
 	void scrollToPost(GtkPost post) {
-		this.scrollMarkOnscreen(this.postBegins[post]);
+		this.scrollToMark(this.postBegins[post], 0, 1, 0, 1);
 	}
 
 	void clearCache() {
