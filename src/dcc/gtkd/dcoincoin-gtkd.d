@@ -156,20 +156,21 @@ class GtkUI : MainWindow {
 
 		this.setup();
 
-		core.thread.Thread t = new core.thread.Thread({
+		auto init_tribunes = {
 			foreach (GtkTribune tribune ; this.tribunes) {
 				tribune.fetch_posts({
 					stderr.writeln("Posts fetched");
 				});
 
 				tribune.on_new_post ~= &this.addPost;
+				tribune.launchReloadThread();
 			}
 
 			new DCCIdle({
 				this.displayAllPosts();
 			});
-		});
-		t.start();
+		};
+		new Thread(init_tribunes).start();
 
 		this.setCurrentTribune(this.tribunes.values[$-1]);
 
@@ -229,8 +230,8 @@ class GtkUI : MainWindow {
 
 			if (Keymap.gdkKeyvalName(key.keyval) == "Return") {
 				string text = input.getBuffer().getText();
-				core.thread.Thread t = new core.thread.Thread({
-					new DCCIdle({input.setProperty("editable", false);});
+				input.setProperty("editable", false);
+				auto post_comment = {
 					this.post(text, (bool success) {
 						if (success) {
 							new DCCIdle({
@@ -239,8 +240,8 @@ class GtkUI : MainWindow {
 						}
 						new DCCIdle({input.setProperty("editable", true);});
 					});
-				});
-				t.start();
+				};
+				new Thread(post_comment).start();
 				return true;
 			}
 
@@ -459,9 +460,11 @@ class GtkUI : MainWindow {
 
 		viewer.tribunes = this.tribunes.values;
 
+		/*
 		viewer.addOnSizeAllocate((GdkRectangle* rect, Widget widget) {
 			viewer.clearCache();
 		});
+		*/
 
 		return viewer;
 	}
@@ -641,8 +644,6 @@ class GtkTribune {
 		};
 
 		this.color = tribune.color;
-
-		this.launchReloadThread();
 	}
 
 	class GtkTribuneReloadThread : Thread {
@@ -664,7 +665,7 @@ class GtkTribune {
 			while (!this.exit) {
 				while (this.remaining > 0 && !this.exit) {
 					this.remaining--;
-					core.thread.Thread.sleep(100.msecs);
+					Thread.sleep(100.msecs);
 				}
 
 				if (!this.exit) {
@@ -690,8 +691,10 @@ class GtkTribune {
 	}
 
 	void stopReloadThread() {
-		this.reloadThread.exit = true;
-		this.reloadThread.join();
+		if (this.reloadThread && this.reloadThread.isRunning()) {
+			this.reloadThread.exit = true;
+			this.reloadThread.join();
+		}
 	}
 
 	void launchReloadThread() {
@@ -700,7 +703,11 @@ class GtkTribune {
 	}
 
 	void forceReload() {
-		this.reloadThread.reloadNow();
+		if (this.reloadThread && this.reloadThread.isRunning()) {
+			this.reloadThread.reloadNow();
+		} else {
+			new Thread(&this.fetch_posts).start();
+		}
 	}
 
 	GtkPost[] findPostsByClock(GtkPostSegment segment) {
@@ -731,6 +738,10 @@ class GtkTribune {
 		}
 
 		return segments;
+	}
+
+	void fetch_posts() {
+		this.fetch_posts(null);
 	}
 
 	void fetch_posts(void delegate() callback = null) {

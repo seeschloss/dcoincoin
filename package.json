@@ -14,7 +14,7 @@
 			"targetType": "executable",
 			"mainSourceFile": "src/dcc/curses/dcoincoin-curses.d",
 			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/cli/*"],
-			"libs": ["panel"],
+			"libs": ["panel", "curl"],
 			"dependencies": {"ncurses": "~master"}
 		},
 		{
@@ -23,6 +23,7 @@
 			"targetPath": "bin",
 			"targetType": "executable",
 			"mainSourceFile": "src/dcc/cli/dcoincoin-cli.d",
+			"libs": ["curl"],
 			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/curses/*"]
 		},
 		{
@@ -32,6 +33,7 @@
 			"targetType": "executable",
 			"mainSourceFile": "src/dcc/gtkd/dcoincoin-gtkd.d",
 			"excludedSourceFiles": ["src/dcc/cli/*", "src/dcc/curses/*"],
+			"libs": ["curl"],
 			"dependencies": {"gtk-d:gtkd": ">=2.4.2"}
 		}
 	]

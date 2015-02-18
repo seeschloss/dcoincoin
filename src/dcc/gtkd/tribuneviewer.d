@@ -46,6 +46,9 @@ class TribunePreviewer : TribuneViewer {
 		this.setBorderWindowSize(GtkTextWindowType.BOTTOM, 2);
 		this.setBorderWindowSize(GtkTextWindowType.LEFT, 2);
 		this.setBorderWindowSize(GtkTextWindowType.RIGHT, 2);
+
+		this.setIndent(-12);
+
 		this.hide();
 
 		this.setName("TribunePreview");
@@ -330,7 +333,7 @@ class TribuneMainViewer : TribuneViewer {
 	}
 
 	void unHighlightPost(GtkPost post) {
-		if (post && post.id in this.highlightedPosts) {
+		if (post && post.id in this.highlightedPosts && post in this.postBegins && post in this.postEnds) {
 			TextIter beginIter = new TextIter();
 			TextIter endIter = new TextIter();
 
@@ -343,7 +346,7 @@ class TribuneMainViewer : TribuneViewer {
 	}
 
 	void highlightPost(GtkPost post) {
-		if (post && post.id !in this.highlightedPosts) {
+		if (post && post.id !in this.highlightedPosts && post in this.postBegins && post in this.postEnds) {
 			this.postHighlight.emit(post);
 
 			TextIter beginIter = new TextIter();
@@ -360,23 +363,25 @@ class TribuneMainViewer : TribuneViewer {
 	}
 
 	void highlightPostAnswers(GtkPost post) {
-		TextIter beginIter = new TextIter();
-		TextIter endIter = new TextIter();
+		if (post in this.postBegins) {
+			TextIter beginIter = new TextIter();
+			TextIter endIter = new TextIter();
 
-		this.getBuffer().getIterAtMark(beginIter, this.postBegins[post]);
-		this.getBuffer().getIterAtMark(endIter, this.postBegins[post]);
-		endIter.setLineOffset(10);
+			this.getBuffer().getIterAtMark(beginIter, this.postBegins[post]);
+			this.getBuffer().getIterAtMark(endIter, this.postBegins[post]);
+			endIter.setLineOffset(10);
 
-		this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
-		this.highlightedPosts[post.id] = post;
+			this.getBuffer().applyTagByName("highlightedpost", beginIter, endIter);
+			this.highlightedPosts[post.id] = post;
 
-		foreach (GtkPostSegment found_segment; this.findReferencesToPost(post)) {
-			this.highlightPostSegment(found_segment);
+			foreach (GtkPostSegment found_segment; this.findReferencesToPost(post)) {
+				this.highlightPostSegment(found_segment);
+			}
 		}
 	}
 
 	void highlightPostSegment(GtkPostSegment segment) {
-		if (segment !in this.highlightedPostSegments) {
+		if (segment !in this.highlightedPostSegments && segment in this.segmentBegins && segment in this.segmentEnds) {
 			TextIter beginIter = new TextIter();
 			TextIter endIter = new TextIter();
 
@@ -389,7 +394,7 @@ class TribuneMainViewer : TribuneViewer {
 	}
 
 	void unHighlightPostSegment(GtkPostSegment segment) {
-		if (segment in this.highlightedPostSegments) {
+		if (segment in this.highlightedPostSegments && segment in this.segmentBegins && segment in this.segmentEnds) {
 			TextIter beginIter = new TextIter();
 			TextIter endIter = new TextIter();
 
@@ -495,7 +500,7 @@ class TribuneViewer : TextView {
 	}
 
 	void scrollToPost(GtkPost post) {
-		this.scrollToMark(this.postBegins[post], 0, 1, 0, 1);
+		this.scrollToMark(this.postEnds[post], 0, 1, 0, 1);
 	}
 
 	void clearCache() {
