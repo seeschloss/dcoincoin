@@ -4,6 +4,7 @@ private import dcc.common;
 
 private import std.net.curl;
 private import std.xml;
+private import std.signals;
 private import std.datetime;
 private import std.conv;
 private import std.stdio;
@@ -33,6 +34,7 @@ class Tribune {
 
 	Post[string] posts;
 	void delegate (Post)[] on_new_post;
+	mixin Signal!(Post) new_post;
 
 	string last_posted_id;
 
@@ -100,6 +102,7 @@ class Tribune {
 		// Now we can call this.on_new_post handlers on each post.
 		foreach (string id ; new_ids) {
 			Post post = this.posts[id];
+			this.new_post.emit(this.posts[id]);
 			foreach (void delegate(Post) f; this.on_new_post) {
 				f(post);
 			}

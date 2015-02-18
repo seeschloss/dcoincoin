@@ -292,6 +292,8 @@ class TribuneMainViewer : TribuneViewer {
 	bool onClick(Event event, Widget viewer) {
 		int bufferX, bufferY;
 
+		auto adjustment = this.getVadjustment();
+
 		this.windowToBufferCoords(GtkTextWindowType.WIDGET, cast(int)event.motion().x, cast(int)event.motion().y, bufferX, bufferY);
 
 		TextIter position = new TextIter();
@@ -500,7 +502,9 @@ class TribuneViewer : TextView {
 	}
 
 	void scrollToPost(GtkPost post) {
-		this.scrollToMark(this.postEnds[post], 0, 1, 0, 1);
+		if (post in this.postEnds) {
+			this.scrollToMark(this.postEnds[post], 0, 1, 0, 1);
+		}
 	}
 
 	void clearCache() {
@@ -559,14 +563,15 @@ class TribuneViewer : TextView {
 
 	bool isScrolledDown() {
 		auto adjustment = this.getVadjustment();
-		return adjustment.getValue() >= (adjustment.getUpper() - adjustment.getPageSize()) - 120;
+		return (adjustment.getValue() >= (adjustment.getUpper() - adjustment.getPageSize()) - 120)
+			|| (adjustment.getPageSize() <= adjustment.getUpper());
 	}
 
 	TextIter getIterForTime(SysTime insert_time) {
 		TextIter iter = new TextIter();
 		TextBuffer buffer = this.getBuffer();
 
-		auto times = sort!("a < b")(this.timestamps.keys);
+		auto times = sort!((a, b) => a < b)(this.timestamps.keys);
 
 		foreach (SysTime time ; times) {
 			if (time > insert_time) {

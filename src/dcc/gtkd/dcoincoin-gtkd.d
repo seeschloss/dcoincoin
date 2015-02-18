@@ -9,7 +9,9 @@ private import std.algorithm : filter, sort, find, uniq, map;
 private import std.file : exists, copy;
 private import std.process : environment;
 private import std.array : array;
+private import std.signals;
 
+private import core.memory;
 private import core.thread;
 
 private import gtk.Main;
@@ -48,6 +50,7 @@ private import gdk.Threads;
 private import gtkc.gtk;
 private import gtkc.gtktypes;
 private import gtkc.glib;
+private import gtkc.glibtypes;
 
 private import glib.ConstructionException;
 private import glib.Str;
@@ -104,21 +107,63 @@ void main(string[] args) {
 	}
 }
 
-class DCCIdle {
+public class DCCIdle {
 	void delegate() f;
+	uint idleID;
 
+	static DCCIdle[] idles;
+	
 	this(void delegate() f) {
 		this.f = f;
-
-		g_idle_add(cast(GSourceFunc)&run, cast(void*)this);
+		idleID = g_idle_add(cast(GSourceFunc)&idleCallback, cast(void*)this);
+		idles ~= this;
 	}
-
-	extern(C) static bool run(DCCIdle idle) {
-		if (idle.f) {
-			idle.f();
-			idle.f = null;
-		}
+	
+	public void stop() {
+		g_source_remove(idleID);
+		this.f = null;
+	}
+	
+	~this() {
+		stop();
+	}
+	
+	extern(C) static bool idleCallback(DCCIdle idle) {
+		return idle.callAllListeners();
+	}
+	
+	private bool callAllListeners() {
+		this.f();
 		return false;
+	}
+}
+
+public class DCCTimeout {
+	void delegate() f;
+	uint timeoutID;
+	
+	this(uint timeout, void delegate() f) {
+		this.f = f;
+		timeoutID = g_timeout_add(timeout, cast(GSourceFunc)&timeoutCallback, cast(void*)this);
+		GC.removeRange(&this);
+	}
+	
+	public void stop() {
+		g_source_remove(timeoutID);
+		this.f = null;
+	}
+	
+	~this() {
+		stop();
+	}
+	
+	extern(C) static bool timeoutCallback(DCCTimeout timeout) {
+		return timeout.callAllListeners();
+	}
+	
+	private bool callAllListeners() {
+		this.f();
+		return true;
 	}
 }
 
@@ -138,6 +183,8 @@ class GtkUI : MainWindow {
 	Overlay overlay;
 	TribunePreviewer preview;
 
+	DCCTimeout renderTimeout;
+
 	GtkPost latestPost;
 
 	this(string config_file) {
@@ -149,6 +196,7 @@ class GtkUI : MainWindow {
 
 		foreach (Tribune tribune ; this.config.tribunes) {
 			GtkTribune gtkTribune = new GtkTribune(this, tribune);
+			gtkTribune.newPost.connect(&addPost);
 			this.tribunes[tribune.name] = gtkTribune;
 			this.tribune_names ~= tribune.name;
 			this.currentTribune = gtkTribune;
@@ -156,23 +204,16 @@ class GtkUI : MainWindow {
 
 		this.setup();
 
-		auto init_tribunes = {
-			foreach (GtkTribune tribune ; this.tribunes) {
-				tribune.fetch_posts({
-					stderr.writeln("Posts fetched");
-				});
-
-				tribune.on_new_post ~= &this.addPost;
-				tribune.launchReloadThread();
-			}
-
-			new DCCIdle({
-				this.displayAllPosts();
-			});
-		};
-		new Thread(init_tribunes).start();
+		foreach (GtkTribune tribune ; this.tribunes) {
+			tribune.launchReloadThread();
+			tribune.forceReload();
+		}
 
 		this.setCurrentTribune(this.tribunes.values[$-1]);
+
+		this.renderTimeout = new DCCTimeout(100, {
+			this.renderPostsQueue();
+		});
 
 		this.addOnDestroy((Widget widget) {
 			foreach (GtkTribune tribune ; this.tribunes) {
@@ -236,9 +277,13 @@ class GtkUI : MainWindow {
 						if (success) {
 							new DCCIdle({
 								input.getBuffer().setText("");
+								input.setProperty("editable", true);
+							});
+						} else {
+							new DCCIdle({
+								input.setProperty("editable", true);
 							});
 						}
-						new DCCIdle({input.setProperty("editable", true);});
 					});
 				};
 				new Thread(post_comment).start();
@@ -261,9 +306,9 @@ class GtkUI : MainWindow {
 		post.checkIfAnswer();
 
 		if (this.latestPost && post.post.real_time < this.latestPost.post.real_time) {
-			post.post.tribune.unreliable_date = true;
-			post.post.tribune.time_offset = this.latestPost.post.real_time - post.post.time;
-			post.post.real_time = this.latestPost.post.real_time + 1.msecs;
+			//post.post.tribune.unreliable_date = true;
+			//post.post.tribune.time_offset = this.latestPost.post.real_time - post.post.time;
+			//post.post.real_time = this.latestPost.post.real_time + 1.msecs;
 		}
 
 		this.latestPost = post;
@@ -271,16 +316,26 @@ class GtkUI : MainWindow {
 
 	void addPost(GtkPost post) {
 		this.updatePost(post);
+		synchronized(this.renderTimeout) {
+			postsQueue ~= post;
+		}
+	}
 
-		// Ensure this is done by the main loop, whenever it has the time
-		auto viewer = this.viewer;
-		new DCCIdle({
+	GtkPost[] postsQueue;
+
+	void renderPostsQueue() {
+		if (this.postsQueue.length > 0) {
 			bool scroll = viewer.isScrolledDown();
-			viewer.renderPost(post);
+			synchronized(this.renderTimeout) {
+				foreach (GtkPost post; this.postsQueue) {
+					this.viewer.renderPost(post);
+				}
+				this.postsQueue = typeof(this.postsQueue).init;
+			}
 			if (scroll) {
 				viewer.scrollToEnd();
 			}
-		});
+		}
 	}
 
 	GtkPostSegment[] findReferencesToPost(GtkPost post) {
@@ -305,29 +360,6 @@ class GtkUI : MainWindow {
 		}
 
 		return posts.uniq.array;
-	}
-
-	void displayAllPosts() {
-		GtkPost[] posts;
-		foreach (GtkTribune tribune; this.tribunes) {
-			posts ~= tribune.posts;
-		}
-		posts.sort!((a, b) {
-			if (a.post.timestamp == b.post.timestamp) {
-				return a.post.post_id < b.post.post_id;
-			} else {
-				return a.post.timestamp < b.post.timestamp;
-			}
-		});
-
-		foreach (GtkPost post; posts) {
-			this.updatePost(post);
-			this.viewer.renderPost(post);
-		}
-
-		new DCCIdle({
-			this.viewer.scrollToEnd();
-		});
 	}
 
 	Box makeTribunesList() {
@@ -613,13 +645,11 @@ class TribuneEnabledTreeViewColumn : TreeViewColumn {
 	}
 }
 
-class GtkTribune {
+class GtkTribune{
 	Tribune tribune;
 	GtkUI ui;
 	GtkPost[] posts;
 	string tag;
-
-	void delegate(GtkPost)[] on_new_post;
 
 	string color;
 
@@ -629,22 +659,23 @@ class GtkTribune {
 	ListStore listStore;
 	TreeIter iter;
 
+	mixin Signal!(GtkPost) newPost;
+
 	this(GtkUI ui, Tribune tribune) {
 		this.ui = ui;
 		this.tribune = tribune;
 
-		this.tribune.on_new_post ~= (Post post) {
-			writeln("New post on tribune ", this.tribune.name, ": ", post.toString());
-			GtkPost p = new GtkPost(this, post);
-			this.posts ~= p;
-
-			foreach (void delegate(GtkPost) f ; this.on_new_post) {
-				f(p);
-			}
-		};
+		this.tribune.new_post.connect(&this.newPostHandler);
 
 		this.color = tribune.color;
 	}
+
+	void newPostHandler(Post post) {
+		GtkPost p = new GtkPost(this, post);
+		this.posts ~= p;
+
+		this.newPost.emit(p);
+	};
 
 	class GtkTribuneReloadThread : Thread {
 		GtkTribune tribune;
@@ -658,6 +689,7 @@ class GtkTribune {
 			this.tribune = tribune;
 			this.timeout = timeout;
 			this.resetRemaining();
+			this.name = "reload thread @" ~ this.tribune.tribune.name;
 			super(&run);
 		}
 
