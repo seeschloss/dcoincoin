@@ -132,8 +132,8 @@ class TribunePreviewer : TribuneViewer {
 
 		buffer.insert(iter, "\n");
 
-		buffer.insert(iter, "User-Agent: ");
-		buffer.insertWithTagsByName(iter, format("%s", post.post.info), ["i"]);
+		buffer.insert(iter, "User-Agent:");
+		buffer.insertWithTagsByName(iter, format(" %s", post.post.info), ["i"]);
 
 		buffer.insert(iter, "\n");
 		if (post.post.login.length > 0) {
