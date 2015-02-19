@@ -195,16 +195,24 @@ class TribuneMainViewer : TribuneViewer {
 		Rectangle visible;
 		this.getVisibleRect(visible);
 
-		TextIter iter = new TextIter();
-		Rectangle location;
-		int startX, startY, endX, endY;
+		TextIter startIter = new TextIter();
+		TextIter stopIter = new TextIter();
+		Rectangle startLocation, stopLocation;
+		int startY, endY, lineHeight;
 		TextBuffer buffer = this.getBuffer();
 
 		auto scrollHeight = this.getVadjustment().getValue();
 
-		int lineHeight = 0;
-
+		int i = 0;
 		foreach (string post_id, GtkPost post; this.posts) {
+			buffer.getIterAtMark(startIter, this.postBegins[post]);
+
+			this.getLineYrange(startIter, startY, lineHeight);
+
+			if (startY < visible.y || startY > visible.y + visible.height) {
+				continue;
+			}
+
 			if (post.post.mine) {
 				context.setSourceRgb(0.5, 0.2, 0.2);
 			} else if (post.answer) {
@@ -223,39 +231,11 @@ class TribuneMainViewer : TribuneViewer {
 				);
 			}
 
-			buffer.getIterAtMark(iter, this.postEnds[post]);
+			buffer.getIterAtMark(stopIter, this.postEnds[post]);
+			this.getLineYrange(stopIter, endY, lineHeight);
 
-			if (lineHeight == 0) {
-				this.getIterLocation(iter, location);
-				lineHeight = location.height;
-			}
-
-			// This complicated stuff is necessary because getIterAtMark is *very* slow,
-			// too slow to call it at each draw
-			if (post !in this.postOffsets) {
-				buffer.getIterAtMark(iter, this.postBegins[post]);
-				this.getIterLocation(iter, location);
-				this.bufferToWindowCoords(GtkTextWindowType.LEFT,
-					0, location.y, startX, startY);
-
-				// For some reason, iters that are after the visible area are misplaced
-				// so we'll wait until they get visible to get their location
-				if (location.y > visible.y + visible.height) {
-					continue;
-				}
-				this.postOffsets[post] = location.y;
-			}
-
-			if (post !in this.postEndOffsets) {
-				buffer.getIterAtMark(iter, this.postEnds[post]);
-				this.getIterLocation(iter, location);
-				this.bufferToWindowCoords(GtkTextWindowType.LEFT,
-					0, location.y + location.height, endX, endY);
-				this.postEndOffsets[post] = location.y + location.height;
-			}
-
-			context.moveTo(1, this.postOffsets[post] - scrollHeight);
-			context.lineTo(1, this.postEndOffsets[post] - scrollHeight);
+			context.moveTo(1, startY - scrollHeight);
+			context.lineTo(1, endY + lineHeight - scrollHeight);
 			context.stroke();
 		}
 
@@ -571,7 +551,8 @@ class TribuneViewer : TextView {
 		TextIter iter = new TextIter();
 		TextBuffer buffer = this.getBuffer();
 
-		auto times = sort!((a, b) => a < b)(this.timestamps.keys);
+		auto times = this.timestamps.keys;
+		times.sort!((a, b) => a < b);
 
 		foreach (SysTime time ; times) {
 			if (time > insert_time) {
