@@ -31,6 +31,7 @@ class Tribune {
 
 	Duration time_offset;
 	bool unreliable_date = false;
+	SysTime last_update;
 
 	Post[string] posts;
 	void delegate (Post)[] on_new_post;
@@ -73,6 +74,7 @@ class Tribune {
 
 	bool fetch_posts() {
 		string backend = this.fetch_backend();
+		this.last_update = std.datetime.Clock.currTime(UTC());
 		Post[] posts = this.parse_backend(backend).values;
 		posts.sort!((a, b) => a.post_id < b.post_id);
 

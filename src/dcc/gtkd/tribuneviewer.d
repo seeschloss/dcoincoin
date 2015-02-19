@@ -74,7 +74,6 @@ class TribunePreviewer : TribuneViewer {
 	}
 
 	void empty() {
-		super.clearCache();
 		this.reset(this.posts);
 		this.reset(this.postBegins);
 		this.reset(this.postEnds);
@@ -450,8 +449,6 @@ class TribuneViewer : TextView {
 
 
 	Color[GtkTribune] tribuneColors;
-	uint[GtkPost] postOffsets;
-	uint[GtkPost] postEndOffsets;
 
 	this() {
 		this.setEditable(false);
@@ -485,11 +482,6 @@ class TribuneViewer : TextView {
 		if (post in this.postEnds) {
 			this.scrollToMark(this.postEnds[post], 0, 1, 0, 1);
 		}
-	}
-
-	void clearCache() {
-		this.postOffsets = typeof(this.postOffsets).init;
-		this.postEndOffsets = typeof(this.postEndOffsets).init;
 	}
 
 	GtkPost[] findPostsByClock(GtkPostSegment segment) {
