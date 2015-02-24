@@ -23,8 +23,11 @@ void main(string[] args) {
 	if (args.length > 2 && args[1] == "-t") {
 		tags_encoded = true;
 		backend = args[2];
-	} else {
+	} else if (args.length > 1) {
 		backend = args[1];
+	} else {
+		stderr.writeln("Usage: ", args[0], " [-t] <url>");
+		return;
 	}
 
 	Tribune tribune = new Tribune(backend, tags_encoded);

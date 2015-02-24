@@ -78,6 +78,7 @@ class Tribune {
 		Post[] posts = this.parse_backend(backend).values;
 		posts.sort!((a, b) => a.post_id < b.post_id);
 
+		bool a = false;
 		// Let's insert the new posts and keep track of their ids.
 		string[] new_ids;
 		Post last_post;
@@ -281,7 +282,7 @@ class Post {
 	}
 
 	void analyze_clocks() {
-		auto clock_regex = regex(
+		auto clock_regex = ctRegex!(
 			`(?P<time>`		// Time part: HH:MM[:SS]
 				`(?:`
 					`(?:[01]?[0-9])|(?:2[0-3])`		// Hour (00-23)

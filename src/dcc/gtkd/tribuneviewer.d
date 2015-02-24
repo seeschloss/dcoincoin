@@ -18,6 +18,7 @@ private import gtk.Window;
 private import gtk.CssProvider;
 
 private import gtkc.gtktypes;
+private import gtkc.gdk;
 
 private import gdk.Color;
 private import gdk.Cursor;
@@ -186,10 +187,21 @@ class TribuneMainViewer : TribuneViewer {
 	mixin Signal!(GtkPost) postHighlight;
 	mixin Signal!() resetHighlight;
 
+	Context marginContext;
+
 	bool onDraw() {
 		// Draw coloured lines in the left margin to indicate post ownership
-		auto context = this.getWindow(GtkTextWindowType.WIDGET).createContext();
+		auto window = this.getWindow(GtkTextWindowType.WIDGET);
+
+		//auto context = this.getWindow(GtkTextWindowType.WIDGET).createContext();
+
+		auto p = gdk_cairo_create(window.getWindowStruct());
+		auto context = new Context(p);
+
 		context.setLineWidth(2);
+
+		//writeln("Path: ", this.getPath());
+
 
 		Rectangle visible;
 		this.getVisibleRect(visible);
@@ -395,6 +407,13 @@ class TribuneMainViewer : TribuneViewer {
 		}
 	}
 
+	Cursor[GdkCursorType] cursors;
+	GdkCursorType currentCursor;
+
+	GtkPost currentPostHover;
+	GtkPost currentLoginHover, currentClockHover;
+	GtkPostSegment currentSegmentHover;
+
 	bool onMotion(Event event, Widget viewer) {
 		int bufferX, bufferY;
 
@@ -405,35 +424,66 @@ class TribuneMainViewer : TribuneViewer {
 
 		GdkCursorType cursor = GdkCursorType.ARROW;
 		GtkPost post = this.getPostAtIter(position);
-
-		this.unHighlightEverything();
-		if (post) {
+		if (post != this.currentPostHover) {
 			this.postHover.emit(post);
 
+			this.currentPostHover = post;
+
+			this.currentClockHover = null;
+			this.currentLoginHover = null;
+			this.currentSegmentHover = null;
+
+			this.unHighlightEverything();
+		}
+		if (post) {
 			int offset = position.getLineOffset();
 			if (offset <= 8) {
 				cursor = GdkCursorType.HAND2;
-				this.highlightPostAnswers(post);
-				this.postClockHover.emit(post);
+				if (post != this.currentClockHover) {
+					this.unHighlightEverything();
+					this.highlightPostAnswers(post);
+					this.postClockHover.emit(post);
+
+					this.currentClockHover = post;
+					this.currentLoginHover = null;
+					this.currentSegmentHover = null;
+				}
 			} else {
 				GtkPostSegment segment = post.getSegmentAt(offset - this.postSegmentsOffsets[post]);
 				if (segment && segment.text && segment.text.length) {
-					if (segment.context.clock != Clock.init) {
-						cursor = GdkCursorType.HAND2;
-						this.highlightClock(segment);
-					} else if (segment.context.link) {
+					if (segment != this.currentSegmentHover) {
+						this.unHighlightEverything();
+						if (segment.context.clock != Clock.init) {
+							this.highlightClock(segment);
+						}
+						this.postSegmentHover.emit(post, segment);
+
+						this.currentClockHover = null;
+						this.currentLoginHover = null;
+						this.currentSegmentHover = segment;
+					} else if (segment.context.clock != Clock.init || segment.context.link) {
 						cursor = GdkCursorType.HAND2;
 					}
-					this.postSegmentHover.emit(post, segment);
 				} else if (offset > 9 && offset < this.postSegmentsOffsets[post]) {
 					cursor = GdkCursorType.HAND2;
-					this.postLoginHover.emit(post);
+					if (post != this.currentPostHover) {
+						this.postLoginHover.emit(post);
+
+						this.currentLoginHover = post;
+						this.currentClockHover = null;
+						this.currentSegmentHover = null;
+					}
 				}
 			}
 		}
 
+		if (cursor !in this.cursors) {
+			this.cursors[cursor] = new Cursor(cursor);
+		}
 
-		this.getWindow(GtkTextWindowType.TEXT).setCursor(new Cursor(cursor));
+		if (cursor != this.currentCursor) {
+			this.getWindow(GtkTextWindowType.TEXT).setCursor(this.cursors[cursor]);
+		}
 
 		return false;
 	}

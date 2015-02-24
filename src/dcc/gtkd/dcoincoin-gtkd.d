@@ -63,10 +63,20 @@ private import dcc.gtkd.tribuneviewer;
 private import dcc.gtkd.tribuneinput;
 private import dcc.gtkd.post;
 
+
 extern (C) { char* setlocale(int category, const char* locale); }
+
+debug {
+	extern (C) { void trace_term(); }
+	import trackallocs;
+}
 
 void main(string[] args) {
 	setlocale(0, "".toStringz());
+
+	debug {
+		startTrackingAllocs(stderr);
+	}
 
 	string config_file = environment.get("HOME") ~ "/.dcoincoinrc";
 
@@ -183,12 +193,19 @@ class GtkUI : MainWindow {
 	Overlay overlay;
 	TribunePreviewer preview;
 
-	DCCTimeout renderTimeout;
+	DCCTimeout renderTimeout, reloadTimeout;
 
 	GtkPost latestPost;
 
+	bool tribuneThreads = true;
+
 	this(string config_file) {
 		super("DCoinCoin");
+
+		debug {
+			writeln("Going threadless for debugging purposes");
+			this.tribuneThreads = false;
+		}
 
 		this.config_file = config_file;
 
@@ -204,9 +221,34 @@ class GtkUI : MainWindow {
 
 		this.setup();
 
-		foreach (GtkTribune tribune ; this.tribunes) {
-			tribune.launchReloadThread();
-			tribune.forceReload();
+		if (this.tribuneThreads) {
+			foreach (GtkTribune tribune ; this.tribunes) {
+				tribune.launchReloadThread();
+				tribune.forceReload();
+			}
+
+			this.addOnDestroy((Widget widget) {
+				foreach (GtkTribune tribune ; this.tribunes) {
+					tribune.stopReloadThread();
+					writeln("Stopped tribune ", tribune.tribune.name);
+				}
+			});
+		} else {
+			foreach (GtkTribune tribune ; this.tribunes) {
+				this.reloadRemaining[tribune] = 100;
+			}
+
+			this.reloadTimeout = new DCCTimeout(100, {
+				this.reloadTick();
+			});
+
+			debug {
+				this.addOnDestroy((Widget widget) {
+					writeln("Writing trace");
+					stopTrackingAllocs();
+					trace_term();
+				});
+			}
 		}
 
 		this.setCurrentTribune(this.tribunes.values[$-1]);
@@ -214,13 +256,20 @@ class GtkUI : MainWindow {
 		this.renderTimeout = new DCCTimeout(100, {
 			this.renderPostsQueue();
 		});
+	}
 
-		this.addOnDestroy((Widget widget) {
-			foreach (GtkTribune tribune ; this.tribunes) {
-				tribune.stopReloadThread();
-				writeln("Stopped tribune ", tribune.tribune.name);
+	int[GtkTribune] reloadRemaining;
+	void reloadTick() {
+		foreach (GtkTribune tribune ; this.tribunes) {
+			this.reloadRemaining[tribune]--;
+
+			if (this.reloadRemaining[tribune] <= 0) {
+				new DCCIdle({
+					tribune.fetch_posts();
+					this.reloadRemaining[tribune] = 100;
+				});
 			}
-		});
+		}
 	}
 
 	override void showAll() {
