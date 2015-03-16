@@ -12,7 +12,7 @@ private import std.string;
 private import std.algorithm;
 private import std.uri;
 private import std.array;
-private import std.regex : regex, replace, ctRegex, match;
+private import std.regex : regex, replace, ctRegex, matchAll;
 
 import core.time;
 
@@ -282,7 +282,7 @@ class Post {
 	}
 
 	void analyze_clocks() {
-		auto clock_regex = ctRegex!(
+		auto clock_regex = regex(
 			`(?P<time>`		// Time part: HH:MM[:SS]
 				`(?:`
 					`(?:[01]?[0-9])|(?:2[0-3])`		// Hour (00-23)
@@ -297,9 +297,9 @@ class Post {
 			`(?P<tribune>`	// Optional tribune part: @tribunename
 				`(?:@[A-Za-z]*)?`
 			`)`
-		, "g");
+		);
 
-		if (auto match = this.message.match(clock_regex)) {
+		if (auto match = this.message.matchAll(clock_regex)) {
 			while (!match.empty) {
 				auto capture = match.front;
 
@@ -323,9 +323,9 @@ class Post {
 
 				string clock_tribune = this.tribune.name;
 				if (capture["tribune"].length > 0) {
-					clock_tribune = capture["tribune"][1 .. $];
+					clock_tribune = capture["tribune"][1 .. $].dup;
 				}
-				this.clocks ~= Clock(capture["time"], index, clock_tribune, capture.hit, this);
+				this.clocks ~= Clock(capture["time"].dup, index, clock_tribune, capture.hit, this);
 
 				match.popFront();
 			}
