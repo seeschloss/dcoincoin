@@ -264,10 +264,12 @@ class GtkUI : MainWindow {
 			this.reloadRemaining[tribune]--;
 
 			if (this.reloadRemaining[tribune] <= 0) {
-				new DCCIdle({
-					tribune.fetch_posts();
-					this.reloadRemaining[tribune] = 100;
-				});
+				new Thread({
+					new DCCIdle({
+						tribune.fetch_posts();
+						this.reloadRemaining[tribune] = 100;
+					});
+				}).start();
 			}
 		}
 	}
@@ -354,11 +356,13 @@ class GtkUI : MainWindow {
 
 		post.checkIfAnswer();
 
-		if (this.latestPost && post.post.real_time < this.latestPost.post.real_time) {
-			//post.post.tribune.unreliable_date = true;
-			//post.post.tribune.time_offset = this.latestPost.post.real_time - post.post.time;
-			//post.post.real_time = this.latestPost.post.real_time + 1.msecs;
+		/*
+		if (this.latestPost && post.post.real_time < (this.latestPost.post.real_time - this.latestPost.post.tribune.last_update)) {
+			post.post.tribune.unreliable_date = true;
+			post.post.tribune.time_offset = this.latestPost.post.real_time - this.latestPost.post.tribune.last_update - post.post.time;
+			post.post.real_time = this.latestPost.post.real_time + 1.msecs;
 		}
+		*/
 
 		this.latestPost = post;
 	}
@@ -688,7 +692,7 @@ class TribuneEnabledTreeViewColumn : TreeViewColumn {
 	}
 }
 
-class GtkTribune{
+class GtkTribune {
 	Tribune tribune;
 	GtkUI ui;
 	GtkPost[] posts;

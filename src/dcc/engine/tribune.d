@@ -16,6 +16,30 @@ private import std.regex : regex, replace, ctRegex, matchAll;
 
 import core.time;
 
+static auto CLOCK_REGEX = std.regex.regex(
+	`(?P<time>`		// Time part: HH:MM[:SS]
+		`(?:`
+			`(?:[01]?[0-9])|(?:2[0-3])`		// Hour (00-23)
+		`)`
+		`:`
+		`(?:[0-5][0-9])`					// Minute (00-59)
+		`(?::(?:[0-5][0-9]))?`				// Optional seconds (00-59)
+	`)`
+	`(?P<index>`	// Optional index part: ¹²³, :n, or ^n
+		`(?:(?:[:\^][0-9])|¹|²|³)?`
+	`)`
+	`(?P<tribune>`	// Optional tribune part: @tribunename
+		`(?:@[A-Za-z]*)?`
+	`)`
+);
+
+version (GNU) {
+	// GDC seems to have problems with Unicode classes.
+	static auto CONTROL_CHARS_REGEX = std.regex.regex(`[\x00-\x1F]`, "g");
+} else {
+	static auto CONTROL_CHARS_REGEX = std.regex.regex(`\p{Control}`, "g");
+}
+
 class Tribune {
 	string name;
 	string[] aliases;
@@ -122,13 +146,6 @@ class Tribune {
 
 		Post[string] posts;
 
-		version (GNU) {
-			// GDC seems to have problems with Unicode classes.
-			auto control_chars = std.regex.ctRegex!(`[\x00-\x1F]`, "g");
-		} else {
-			auto control_chars = std.regex.ctRegex!(`\p{Control}`, "g");
-		}
-
 		xml.onStartTag["post"] = (ElementParser xml) {
 			Post post = new Post();
 			post.tribune = this;
@@ -138,11 +155,11 @@ class Tribune {
 			}
 			post.timestamp = xml.tag.attr["time"];
 			xml.onEndTag["info"]    = (in Element e) {
-				post.info = replace(e.text().strip(), control_chars, " ");
+				post.info = replace(e.text().strip(), CONTROL_CHARS_REGEX, " ");
 				post.info = this.tags_cleanup(post.info);
 			};
 			xml.onEndTag["message"] = (in Element e) {
-				post.message = replace(e.text().strip(), control_chars, " ");
+				post.message = replace(e.text().strip(), CONTROL_CHARS_REGEX, " ");
 
 				if (this.tags_encoded) {
 					post.message = this.tags_decode(post.message);
@@ -151,7 +168,7 @@ class Tribune {
 				post.message = this.tags_cleanup(post.message);
 			};
 			xml.onEndTag["login"]   = (in Element e) {
-				post.login = replace(e.text().strip(), control_chars, " ");
+				post.login = replace(e.text().strip(), CONTROL_CHARS_REGEX, " ");
 				post.login = this.tags_cleanup(post.login);
 			};
 
@@ -282,24 +299,7 @@ class Post {
 	}
 
 	void analyze_clocks() {
-		auto clock_regex = regex(
-			`(?P<time>`		// Time part: HH:MM[:SS]
-				`(?:`
-					`(?:[01]?[0-9])|(?:2[0-3])`		// Hour (00-23)
-				`)`
-				`:`
-				`(?:[0-5][0-9])`					// Minute (00-59)
-				`(?::(?:[0-5][0-9]))?`				// Optional seconds (00-59)
-			`)`
-			`(?P<index>`	// Optional index part: ¹²³, :n, or ^n
-				`(?:(?:[:\^][0-9])|¹|²|³)?`
-			`)`
-			`(?P<tribune>`	// Optional tribune part: @tribunename
-				`(?:@[A-Za-z]*)?`
-			`)`
-		);
-
-		if (auto match = this.message.matchAll(clock_regex)) {
+		if (auto match = this.message.matchAll(CLOCK_REGEX)) {
 			while (!match.empty) {
 				auto capture = match.front;
 
@@ -325,7 +325,7 @@ class Post {
 				if (capture["tribune"].length > 0) {
 					clock_tribune = capture["tribune"][1 .. $].dup;
 				}
-				this.clocks ~= Clock(capture["time"].dup, index, clock_tribune, capture.hit, this);
+				this.clocks ~= Clock(capture["time"].dup, index, clock_tribune, capture.hit.dup, this);
 
 				match.popFront();
 			}
