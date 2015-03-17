@@ -34,7 +34,7 @@
 			"mainSourceFile": "src/dcc/gtkd/dcoincoin-gtkd.d",
 			"excludedSourceFiles": ["src/dcc/cli/*", "src/dcc/curses/*"],
 			"libs": ["curl"],
-			"dependencies": {"gtk-d:gtkd": ">=2.4.2"}
+			"dependencies": {"gtk-d:gtkd": ">=3.0.0"}
 		}
 	]
 }

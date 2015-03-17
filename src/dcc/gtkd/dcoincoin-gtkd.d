@@ -75,7 +75,7 @@ void main(string[] args) {
 	setlocale(0, "".toStringz());
 
 	debug {
-		startTrackingAllocs(stderr);
+		//startTrackingAllocs(stderr);
 	}
 
 	string config_file = environment.get("HOME") ~ "/.dcoincoinrc";
@@ -197,15 +197,8 @@ class GtkUI : MainWindow {
 
 	GtkPost latestPost;
 
-	bool tribuneThreads = true;
-
 	this(string config_file) {
 		super("DCoinCoin");
-
-		debug {
-			writeln("Going threadless for debugging purposes");
-			this.tribuneThreads = false;
-		}
 
 		this.config_file = config_file;
 
@@ -221,37 +214,24 @@ class GtkUI : MainWindow {
 
 		this.setup();
 
-		if (this.tribuneThreads) {
-			foreach (GtkTribune tribune ; this.tribunes) {
-				tribune.launchReloadThread();
-				tribune.forceReload();
-			}
+		foreach (GtkTribune tribune ; this.tribunes) {
+			this.reloadRemaining[tribune] = 0;
+		}
 
+		debug {
 			this.addOnDestroy((Widget widget) {
-				foreach (GtkTribune tribune ; this.tribunes) {
-					tribune.stopReloadThread();
-					writeln("Stopped tribune ", tribune.tribune.name);
-				}
+				writeln("Writing trace");
+				stopTrackingAllocs();
+				trace_term();
 			});
-		} else {
-			foreach (GtkTribune tribune ; this.tribunes) {
-				this.reloadRemaining[tribune] = 100;
-			}
-
-			this.reloadTimeout = new DCCTimeout(100, {
-				this.reloadTick();
-			});
-
-			debug {
-				this.addOnDestroy((Widget widget) {
-					writeln("Writing trace");
-					stopTrackingAllocs();
-					trace_term();
-				});
-			}
 		}
 
 		this.setCurrentTribune(this.tribunes.values[$-1]);
+		this.reloadRemaining[this.tribunes.values[$-1]] = 0;
+
+		this.reloadTimeout = new DCCTimeout(100, {
+			this.reloadTick();
+		});
 
 		this.renderTimeout = new DCCTimeout(100, {
 			this.renderPostsQueue();
@@ -259,14 +239,14 @@ class GtkUI : MainWindow {
 	}
 
 	int[GtkTribune] reloadRemaining;
+
 	void reloadTick() {
 		foreach (GtkTribune tribune ; this.tribunes) {
 			this.reloadRemaining[tribune]--;
 
-			if (this.reloadRemaining[tribune] <= 0) {
+			if (this.reloadRemaining[tribune] <= 0 && !tribune.updating) {
 				new Thread({
-					new DCCIdle({
-						tribune.fetch_posts();
+					tribune.fetch_posts({
 						this.reloadRemaining[tribune] = 100;
 					});
 				}).start();
@@ -320,7 +300,7 @@ class GtkUI : MainWindow {
 		input.addOnKeyPress((Event event, Widget source) {
 			GdkEventKey* key = event.key();
 
-			if (Keymap.gdkKeyvalName(key.keyval) == "Return") {
+			if (Keymap.keyvalName(key.keyval) == "Return") {
 				string text = input.getBuffer().getText();
 				input.setProperty("editable", false);
 				auto post_comment = {
@@ -460,7 +440,7 @@ class GtkUI : MainWindow {
 
 					string name = iter.getValueString(0);
 					if (name in this.tribunes) {
-						this.tribunes[name].forceReload();
+						//this.tribunes[name].forceReload();
 					}
 
 					return true;
@@ -701,7 +681,6 @@ class GtkTribune {
 	string color;
 
 	bool updating;
-	GtkTribuneReloadThread reloadThread;
 
 	ListStore listStore;
 	TreeIter iter;
@@ -723,71 +702,6 @@ class GtkTribune {
 
 		this.newPost.emit(p);
 	};
-
-	class GtkTribuneReloadThread : Thread {
-		GtkTribune tribune;
-		uint timeout;
-
-		uint remaining;
-
-		bool exit = false;
-
-		this(GtkTribune tribune, uint timeout) {
-			this.tribune = tribune;
-			this.timeout = timeout;
-			this.resetRemaining();
-			this.name = "reload thread @" ~ this.tribune.tribune.name;
-			super(&run);
-		}
-
-		void run() {
-			while (!this.exit) {
-				while (this.remaining > 0 && !this.exit) {
-					this.remaining--;
-					Thread.sleep(100.msecs);
-				}
-
-				if (!this.exit) {
-					this.resetRemaining();
-					this.reload();
-				}
-			}
-		}
-
-		void reloadNow() {
-			this.remaining = 0;
-		}
-
-		void resetRemaining() {
-			this.remaining = timeout * 10;
-		}
-
-		void reload() {
-			if (!tribune.updating) {
-				tribune.fetch_posts();
-			}
-		}
-	}
-
-	void stopReloadThread() {
-		if (this.reloadThread && this.reloadThread.isRunning()) {
-			this.reloadThread.exit = true;
-			this.reloadThread.join();
-		}
-	}
-
-	void launchReloadThread() {
-		this.reloadThread = new GtkTribuneReloadThread(this, 10);
-		this.reloadThread.start();
-	}
-
-	void forceReload() {
-		if (this.reloadThread && this.reloadThread.isRunning()) {
-			this.reloadThread.reloadNow();
-		} else {
-			new Thread(&this.fetch_posts).start();
-		}
-	}
 
 	GtkPost[] findPostsByClock(GtkPostSegment segment) {
 		GtkPost[] posts;

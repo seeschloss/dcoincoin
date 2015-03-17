@@ -62,7 +62,7 @@ class TribunePreviewer : TribuneViewer {
 		`);
 
 		Signals.connectData(
-			this.getStruct(),
+			this,
 			"draw",
 			cast(GCallback)&this.onDrawCallback,
 			cast(void*)this,
@@ -151,7 +151,7 @@ class TribunePreviewer : TribuneViewer {
 		auto context = this.getWindow(GtkTextWindowType.WIDGET).createContext();
 		context.setLineWidth(8);
 
-		Rectangle visible;
+		GdkRectangle visible;
 		this.getVisibleRect(visible);
 
 		context.setSourceRgb(0, 0, 0);
@@ -166,7 +166,7 @@ class TribunePreviewer : TribuneViewer {
 		return false;
 	}
 
-	extern(C) static gboolean onDrawCallback(GtkWidget* widgetStruct, CairoContext* cr, Widget _widget) {
+	extern(C) static bool onDrawCallback(GtkWidget* widgetStruct, cairo_t* cr, Widget _widget) {
 		return (cast(TribunePreviewer)_widget).onDraw();
 	}
 }
@@ -203,12 +203,12 @@ class TribuneMainViewer : TribuneViewer {
 		//writeln("Path: ", this.getPath());
 
 
-		Rectangle visible;
+		GdkRectangle visible;
 		this.getVisibleRect(visible);
 
 		TextIter startIter = new TextIter();
 		TextIter stopIter = new TextIter();
-		Rectangle startLocation, stopLocation;
+		GdkRectangle startLocation, stopLocation;
 		int startY, endY, lineHeight;
 		TextBuffer buffer = this.getBuffer();
 
@@ -255,7 +255,7 @@ class TribuneMainViewer : TribuneViewer {
 		return false;
 	}
 
-	extern(C) static gboolean onDrawCallback(GtkWidget* widgetStruct, CairoContext* cr, Widget _widget) {
+	extern(C) static bool onDrawCallback(GtkWidget* widgetStruct, cairo_t* cr, Widget _widget) {
 		return (cast(TribuneMainViewer)_widget).onDraw();
 	}
 
@@ -272,7 +272,7 @@ class TribuneMainViewer : TribuneViewer {
 		this.setBorderWindowSize(GtkTextWindowType.LEFT, 2);
 
 		Signals.connectData(
-			this.getStruct(),
+			this,
 			"draw",
 			cast(GCallback)&this.onDrawCallback,
 			cast(void*)this,
