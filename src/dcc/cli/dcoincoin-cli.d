@@ -1,15 +1,7 @@
 module dcc.curses.cli;
 
-private import std.stdio;
-private import std.string;
-private import std.regex;
-private import std.utf : count;
-private import std.conv : to;
-private import std.algorithm : filter, sort, find;
-private import std.file : exists, copy;
-private import std.process : environment;
-
-private import core.thread;
+private import std.stdio : stderr, writefln;
+private import std.string : toStringz;
 
 private import dcc.engine.tribune;
 
