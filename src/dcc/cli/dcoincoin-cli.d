@@ -32,8 +32,13 @@ void main(string[] args) {
 
 	Tribune tribune = new Tribune(backend, tags_encoded);
 
-	tribune.on_new_post ~= delegate(Post post) {
-		writefln("%s\t%s\t%s\t%s\t%s", post.post_id, post.tribune_time, post.info, post.login, post.message);
+	tribune.on_new_post ~= (Post post) {
+		writefln("%s\t%s\t%s\t%s\t%s",
+			post.post_id,
+			post.tribune_time,
+			post.info.length > 0 ? post.info : "-",
+			post.login.length > 0 ? post.login : "-",
+			post.message);
 	};
 
 	tribune.fetch_posts();
