@@ -149,8 +149,11 @@ class NCUI {
 		});
 
 		this.display_enabled = true;
-		foreach (NCPost post; posts[$-this.posts_window.maxy .. $]) {
-			this.display_post(this.posts_window, post, true, false);
+		if (this.posts_window.maxy > 0) {
+			auto start = this.posts_window.maxy > posts.length ? 0 : posts.length - this.posts_window.maxy;
+			foreach (NCPost post; posts[$-this.posts_window.maxy .. $]) {
+				this.display_post(this.posts_window, post, true, false);
+			}
 		}
 
 		set_stop(this.stops[$ - 1]);
