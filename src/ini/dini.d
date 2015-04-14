@@ -7,9 +7,9 @@
 module ini.dini;
 
 private import std.stream : BufferedFile;
-private import std.string : strip;
+private import std.string : strip, indexOf;
 private import std.traits : isSomeString;
-private import std.array  : split, indexOf, replaceInPlace, join;
+private import std.array  : split, replaceInPlace, join;
 private import std.algorithm : min, max, countUntil;
 private import std.conv   : to;
 
