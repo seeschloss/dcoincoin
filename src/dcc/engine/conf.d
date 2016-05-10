@@ -7,6 +7,9 @@ private import std.file;
 private import std.conv;
 private import std.algorithm : map;
 
+private import std.array;
+private import std.string;
+
 class Config {
 	Tribune[] tribunes;
 

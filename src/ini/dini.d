@@ -6,7 +6,6 @@
  */
 module ini.dini;
 
-private import std.stream : BufferedFile;
 private import std.string : strip, indexOf;
 private import std.traits : isSomeString;
 private import std.array  : split, replaceInPlace, join;
@@ -293,13 +292,16 @@ struct IniSection
      */
     public void parse(string filename, bool doLookups = true)
     {
-        BufferedFile file = new BufferedFile(filename);
+        auto file = new File(filename);
         scope(exit) file.close;
         
         IniSection* section = &this;
         
-        foreach(i, char[] line; file)
+		int i = 0;
+		string line;
+		while((line = file.readln()) !is null)
         {
+			i++;
             line = strip(line);
             
             // Empty line
@@ -312,7 +314,7 @@ struct IniSection
             if(line.length >= 3 && line[0] == '[' && line[$-1] == ']')
             {
                 section = &this;
-                char[] name = line[1..$-1];
+                auto name = line[1..$-1];
                 string parent;
                 
                 ptrdiff_t pos = name.countUntil(":");

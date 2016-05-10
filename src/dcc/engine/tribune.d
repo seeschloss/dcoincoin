@@ -14,6 +14,8 @@ private import std.uri;
 private import std.array;
 private import std.regex : regex, replace, ctRegex, matchAll;
 
+private static import std.regex;
+
 import core.time;
 
 static auto CLOCK_REGEX = std.regex.regex(

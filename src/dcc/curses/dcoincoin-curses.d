@@ -18,6 +18,9 @@ private import dcc.curses.uput;
 private import deimos.ncurses.ncurses;
 private import deimos.ncurses.panel;
 
+private static import std.utf;
+private static import std.array;
+
 extern (C) { char* setlocale(int category, const char* locale); }
 
 void main(string[] args) {
