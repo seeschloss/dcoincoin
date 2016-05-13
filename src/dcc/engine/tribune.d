@@ -14,6 +14,8 @@ private import std.uri;
 private import std.array;
 private import std.regex : regex, replace, ctRegex, matchAll;
 
+private import std.concurrency : send, receive;
+
 private static import std.regex;
 
 import core.time;
@@ -60,7 +62,6 @@ class Tribune {
 	SysTime last_update;
 
 	Post[string] posts;
-	void delegate (Post)[] on_new_post;
 	mixin Signal!(Post) new_post;
 
 	string last_posted_id;
@@ -128,13 +129,10 @@ class Tribune {
 		// Hashtables have no sort order, so sort the new ids.
 		new_ids.sort();
 
-		// Now we can call this.on_new_post handlers on each post.
+		// Now we can emit a new_post signal for each post.
 		foreach (string id ; new_ids) {
 			Post post = this.posts[id];
 			this.new_post.emit(this.posts[id]);
-			foreach (void delegate(Post) f; this.on_new_post) {
-				f(post);
-			}
 		}
 
 		return true;

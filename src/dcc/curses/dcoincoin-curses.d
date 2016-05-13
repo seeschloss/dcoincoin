@@ -5,11 +5,14 @@ private import std.string;
 private import std.regex;
 private import std.utf : count;
 private import std.conv : to;
-private import std.algorithm : filter, sort, find;
+private import std.algorithm : sort, find;
 private import std.file : exists, copy;
 private import std.process : environment;
 
-private import core.thread;
+private import core.thread : Thread;
+private import core.time : dur, msecs, Duration;
+
+private import std.parallelism;
 
 private import dcc.engine.conf;
 private import dcc.engine.tribune;
@@ -77,8 +80,9 @@ class NCUI {
 	string config_file;
 	Config config;
 	NCTribune[string] tribunes;
+	NCTribune[] tribunes_ordered;
+	Duration[NCTribune] reload_remaining;
 	ulong active = 0;
-	string[] tribune_names;
 
 	WINDOW* posts_window;
 	WINDOW* input_window;
@@ -108,17 +112,6 @@ class NCUI {
 		// them, and once all this is done then display the latest posts.
 		foreach (Tribune tribune ; this.config.tribunes) {
 			this.tribunes[tribune.name] = new NCTribune(this, tribune);
-			this.tribune_names ~= tribune.name;
-
-			this.tribunes[tribune.name].fetch_posts({
-				n_tribunes--;
-
-				if (n_tribunes == 0) {
-					this.display_all_posts();
-					this.start_timers();
-				}
-			});
-
 
 			this.tribunes[tribune.name].color = n;
 			n++;
@@ -126,6 +119,37 @@ class NCUI {
 				n = 2;
 			}
 		}
+
+		this.tribunes_ordered = this.tribunes.values;
+
+		foreach (ref tribune; parallel(this.tribunes.values)) {
+			tribune.tribune.fetch_posts();
+
+			n_tribunes--;
+
+			if (n_tribunes == 0) {
+				this.display_all_posts();
+			}
+		}
+		
+		this.start_timers();
+	}
+
+	void reload_tick() {
+		foreach (tribune ; this.tribunes) {
+			if (tribune !in this.reload_remaining) {
+				this.reload_remaining[tribune] = dur!("seconds")(tribune.tribune.refresh);
+			}
+
+			this.reload_remaining[tribune] -= 10.msecs;
+
+			if (this.reload_remaining[tribune] <= 0.msecs) {
+				tribune.fetch_posts();
+				this.reload_remaining[tribune] = dur!("seconds")(tribune.tribune.refresh);
+			}
+		}
+
+		this.set_status("");
 	}
 
 	void redraw_all_posts() {
@@ -143,30 +167,36 @@ class NCUI {
 		foreach (NCTribune tribune; this.tribunes) {
 			posts ~= tribune.posts;
 		}
-		posts.sort!((a, b) {
-			if (a.post.timestamp == b.post.timestamp) {
-				return a.post.post_id < b.post.post_id;
-			} else {
-				return a.post.timestamp < b.post.timestamp;
-			}
-		});
 
-		this.display_enabled = true;
-		if (this.posts_window.maxy > 0) {
-			auto start = this.posts_window.maxy > posts.length ? 0 : posts.length - this.posts_window.maxy;
-			foreach (NCPost post; posts[$-this.posts_window.maxy .. $]) {
-				this.display_post(this.posts_window, post, true, false);
+		if (posts.length > 0) {
+			posts.sort!((a, b) {
+				if (a.post.timestamp == b.post.timestamp) {
+					return a.post.post_id < b.post.post_id;
+				} else {
+					return a.post.timestamp < b.post.timestamp;
+				}
+			});
+
+			this.display_enabled = true;
+			if (this.posts_window.maxy > 0) {
+				auto start = this.posts_window.maxy > posts.length ? 0 : posts.length - this.posts_window.maxy;
+				foreach (NCPost post; posts[$-this.posts_window.maxy .. $]) {
+					this.display_post(this.posts_window, post, true, false);
+				}
 			}
+
+			set_stop(this.stops[$ - 1]);
 		}
-
-		set_stop(this.stops[$ - 1]);
 	}
 
 	void start_timers() {
-		this.display_enabled = true;
-		foreach (NCTribune tribune; this.tribunes) {
-			tribune.start_timer();
-		}
+		task({
+			this.display_enabled = true;
+			while (true) {
+				Thread.sleep(10.msecs);
+				this.reload_tick();
+			}
+		}).executeInNewThread();
 	}
 
 	void init_ui() {
@@ -233,13 +263,35 @@ class NCUI {
 	}
 
 	void set_status(string status) {
-		mvwhline(this.input_window, 0, 0, 0, COLS);
-		mvwprintw(this.input_window, 0, 2, "%s", this.tribune_names[this.active].toStringz());
-		mvwchgat(this.input_window, 0, 2, cast(int)this.tribune_names[this.active].length, A_BOLD, cast(short)this.tribunes[this.tribune_names[this.active]].ncolor(false), cast(void*)null);
-		mvwprintw(this.input_window, 0, cast(int)(COLS - 2 - status.length), "%s", status.toStringz());
+		synchronized(this) {
+			int y, x;
+			getyx(this.input_window, y, x);
 
-		wmove(this.input_window, 1, 0);
-		wrefresh(this.input_window);
+			mvwhline(this.input_window, 0, 0, 0, COLS);
+
+			int col = 2;
+
+			foreach (i, tribune; this.tribunes_ordered) {
+				if (i == this.active) {
+					auto style = tribune.updating ? A_REVERSE | A_BOLD : A_REVERSE;
+					mvwprintw(this.input_window, 0, col, "%s", tribune.tribune.name.toStringz());
+					mvwchgat(this.input_window, 0, col, cast(int)tribune.tribune.name.length, style, cast(short)tribune.ncolor(false), cast(void*)null);
+
+					col += cast(int)tribune.tribune.name.length + 1;
+				} else {
+					auto style = tribune.updating ? A_REVERSE : A_BOLD;
+					mvwprintw(this.input_window, 0, col, "%s", tribune.tribune.name[0 .. 1].toStringz());
+					mvwchgat(this.input_window, 0, col, 1, style, cast(short)tribune.ncolor(false), cast(void*)null);
+
+					col += 2;
+				}
+			}
+
+			mvwprintw(this.input_window, 0, cast(int)(COLS - 2 - status.length), "%s", status.toStringz());
+
+			wmove(this.input_window, y, x);
+			wrefresh(this.input_window);
+		}
 	}
 
 	void highlight_post(NCPost post, NCPost origin) {
@@ -265,7 +317,7 @@ class NCUI {
 	}
 
 	void show_info(NCPost post) {
-		synchronized {
+		synchronized(this) {
 			wmove(this.input_window, 1, 0);
 			wclrtoeol(this.input_window);
 		}
@@ -348,13 +400,12 @@ class NCUI {
 					break;
 				case 0x20:
 					this.set_status("O");
-					this.tribunes[this.tribune_names[this.active]].fetch_posts({
-						this.set_status("");
-					});
+					this.tribunes_ordered[this.active].fetch_posts();
+					this.set_status("");
 					break;
 				case KEY_RIGHT:
 					this.active++;
-					if (this.active >= this.tribune_names.length) {
+					if (this.active >= this.tribunes_ordered.length) {
 						this.active = 0;
 					}
 					this.set_status("");
@@ -363,8 +414,8 @@ class NCUI {
 					this.active--;
 					// This should be an ulong, but the compiler will optimize
 					// this out anyway, and it's cleared and safer.
-					if (this.active < 0 || this.active >= this.tribune_names.length) {
-						this.active = this.tribune_names.length - 1;
+					if (this.active < 0 || this.active >= this.tribunes_ordered.length) {
+						this.active = this.tribunes_ordered.length - 1;
 					}
 					this.set_status("");
 					break;
@@ -398,8 +449,8 @@ class NCUI {
 					string initial_text = this.current_stop !is Stop.init ? this.current_stop.post.post.clock_ref ~ " " : "";
 
 					if (this.current_stop !is Stop.init) {
-						foreach (int n, string name; this.tribune_names) {
-							if (this.tribunes[name] == this.current_stop.post.tribune) {
+						foreach (n, tribune; this.tribunes_ordered) {
+							if (tribune == this.current_stop.post.tribune) {
 								this.active = n;
 							}
 						}
@@ -410,8 +461,8 @@ class NCUI {
 					curs_set(2);
 					string text = uput(this.input_window, 1, 0, COLS - 2, initial_text, "> ", exit);
 					curs_set(0);
-					if (exit == 10 && this.tribunes[this.tribune_names[this.active]].tribune.post(text)) {
-						this.tribunes[this.tribune_names[this.active]].fetch_posts();
+					if (exit == 10 && this.tribunes_ordered[this.active].tribune.post(text)) {
+						this.tribunes_ordered[this.active].fetch_posts();
 					}
 					wmove(this.input_window, 1, 0);
 					wclrtoeol(this.input_window);
@@ -646,13 +697,13 @@ class NCUI {
 
 	void display_post(WINDOW* window, NCPost post, bool add_stops = true, bool scroll = true) {
 		if (this.display_enabled && !this.is_post_ignored(post)) {
-			post.offset = this.offset + 1;
+			synchronized(this) {
+				post.offset = this.offset + 1;
 
-			synchronized {
 				this.offset = append_post(window, post, add_stops, this.offset);
-			}
-			if (scroll) {
-				adjust_stop();
+				if (scroll) {
+					adjust_stop();
+				}
 			}
 		}
 	}
@@ -700,7 +751,7 @@ class NCTribune {
 	this(NCUI ui, Tribune tribune) {
 		this.ui = ui;
 		this.tribune = tribune;
-		this.tribune.on_new_post ~= &this.on_new_post;
+		this.tribune.new_post.connect(&this.on_new_post);
 	}
 
 	void color(int c) {
@@ -723,40 +774,15 @@ class NCTribune {
 			this.posts = this.posts[1 .. $];
 		}
 
-		synchronized {
-			this.ui.display_post(this.ui.posts_window, p);
-		}
+		this.ui.display_post(this.ui.posts_window, p);
 	};
 
-	void start_timer() {
-		core.thread.Thread t = new core.thread.Thread({
-			while (true) {
-				if (!this.updating) {
-					this.tribune.fetch_posts();
-				}
-
-				core.thread.Thread.sleep(dur!("seconds")(this.tribune.refresh));
-			}
-		});
-		t.start();
-	}
-
-	void fetch_posts(void delegate() callback = null) {
-		while (this.updating) {
-			core.thread.Thread.sleep(dur!("msecs")(50));
-		}
+	auto fetch_posts() {
 		this.updating = true;
-		core.thread.Thread t = new core.thread.Thread({
-			try {
-				this.tribune.fetch_posts();
-			} catch (Exception e) {
-			}
-			this.updating = false;
-			if (callback) {
-				callback();
-			}
-		});
-		t.start();
+
+		this.tribune.fetch_posts();
+
+		this.updating = false;
 	}
 
 	NCPost find_referenced_post(string clock, int index = 1, NCPost[] posts = null) {
