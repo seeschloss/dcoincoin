@@ -22,19 +22,19 @@ import core.time;
 
 static auto CLOCK_REGEX = std.regex.regex(
 	`(?P<time>`		// Time part: HH:MM[:SS]
-		`(?:`
-			`(?:[01]?[0-9])|(?:2[0-3])`		// Hour (00-23)
-		`)`
-		`:`
-		`(?:[0-5][0-9])`					// Minute (00-59)
-		`(?::(?:[0-5][0-9]))?`				// Optional seconds (00-59)
-	`)`
-	`(?P<index>`	// Optional index part: ¹²³, :n, or ^n
-		`(?:(?:[:\^][0-9])|¹|²|³)?`
-	`)`
-	`(?P<tribune>`	// Optional tribune part: @tribunename
-		`(?:@[A-Za-z]*)?`
-	`)`
+		~`(?:`
+			~`(?:[01]?[0-9])|(?:2[0-3])`	// Hour (00-23)
+		~`)`
+		~`:`
+		~`(?:[0-5][0-9])`					// Minute (00-59)
+		~`(?::(?:[0-5][0-9]))?`				// Optional seconds (00-59)
+	~`)`
+	~`(?P<index>`	// Optional index part: ¹²³, :n, or ^n
+		~`(?:(?:[:\^][0-9])|¹|²|³)?`
+	~`)`
+	~`(?P<tribune>`	// Optional tribune part: @tribunename
+		~`(?:@[A-Za-z]*)?`
+	~`)`
 );
 
 version (GNU) {

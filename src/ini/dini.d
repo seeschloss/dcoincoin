@@ -6,6 +6,7 @@
  */
 module ini.dini;
 
+private import std.stdio : File;
 private import std.string : strip, indexOf;
 private import std.traits : isSomeString;
 private import std.array  : split, replaceInPlace, join;
@@ -292,16 +293,15 @@ struct IniSection
      */
     public void parse(string filename, bool doLookups = true)
     {
-        auto file = new File(filename);
+        auto file = File(filename);
         scope(exit) file.close;
         
         IniSection* section = &this;
         
-		int i = 0;
-		string line;
-		while((line = file.readln()) !is null)
+        int i = 0;
+        foreach(char[] line; file.byLine)
         {
-			i++;
+            i++;
             line = strip(line);
             
             // Empty line

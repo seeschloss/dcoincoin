@@ -66,17 +66,8 @@ private import dcc.gtkd.post;
 
 extern (C) { char* setlocale(int category, const char* locale); }
 
-debug {
-	extern (C) { void trace_term(); }
-	import trackallocs;
-}
-
 void main(string[] args) {
 	setlocale(0, "".toStringz());
-
-	debug {
-		//startTrackingAllocs(stderr);
-	}
 
 	string config_file = environment.get("HOME") ~ "/.dcoincoinrc";
 
@@ -155,7 +146,7 @@ public class DCCTimeout {
 	this(uint timeout, void delegate() f) {
 		this.f = f;
 		timeoutID = g_timeout_add(timeout, cast(GSourceFunc)&timeoutCallback, cast(void*)this);
-		GC.removeRange(&this);
+		//GC.removeRange(this);
 	}
 	
 	public void stop() {
@@ -216,14 +207,6 @@ class GtkUI : MainWindow {
 
 		foreach (GtkTribune tribune ; this.tribunes) {
 			this.reloadRemaining[tribune] = 0;
-		}
-
-		debug {
-			this.addOnDestroy((Widget widget) {
-				writeln("Writing trace");
-				stopTrackingAllocs();
-				trace_term();
-			});
 		}
 
 		this.setCurrentTribune(this.tribunes.values[$-1]);

@@ -3,6 +3,7 @@ module dcc.gtkd.post;
 private import std.conv;
 private import std.string;
 private import std.stdio;
+private import std.regex : replaceAll;
 
 private import gtk.TextMark;
 
@@ -167,11 +168,11 @@ class GtkPost {
 
 	// This is the same function as for the curses interface, for now...
 	string[] tokenize() {
-		string line = this.post.message.replace(regex(`\s+`, "g"), " ");
+		string line = this.post.message.replaceAll(regex(`\s+`, "g"), " ");
 
 		// Since I can't use backreferences here...
-		line = line.replace(regex(`<a href="(.*?)".*?>(.*?)</a>`, "g"), "<a>$1</a>");
-		line = line.replace(regex(`<a href='(.*?)'.*?>(.*?)</a>`, "g"), "<a>$1</a>");
+		line = line.replaceAll(regex(`<a href="(.*?)".*?>(.*?)</a>`, "g"), "<a>$1</a>");
+		line = line.replaceAll(regex(`<a href='(.*?)'.*?>(.*?)</a>`, "g"), "<a>$1</a>");
 
 		line = std.array.replace(line, "&lt;", "<");
 		line = std.array.replace(line, "&gt;", ">");
