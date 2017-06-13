@@ -3,7 +3,8 @@ module dcc.gtkd.post;
 private import std.conv;
 private import std.string;
 private import std.stdio;
-private import std.regex : replaceAll;
+private import std.regex : replaceAll, regex;
+private import std.array : replace;
 
 private import gtk.TextMark;
 
@@ -174,9 +175,9 @@ class GtkPost {
 		line = line.replaceAll(regex(`<a href="(.*?)".*?>(.*?)</a>`, "g"), "<a>$1</a>");
 		line = line.replaceAll(regex(`<a href='(.*?)'.*?>(.*?)</a>`, "g"), "<a>$1</a>");
 
-		line = std.array.replace(line, "&lt;", "<");
-		line = std.array.replace(line, "&gt;", ">");
-		line = std.array.replace(line, "&amp;", "&");
+		line = replace(line, "&lt;", "<");
+		line = replace(line, "&gt;", ">");
+		line = replace(line, "&amp;", "&");
 
 		string[] tokens = [""];
 
