@@ -607,7 +607,7 @@ class TribuneViewer : TextView {
 		buffer.insert(iter, " ");
 		buffer.insertWithTagsByName(iter, post.post.clock, ["mainclock"]);
 		buffer.insert(iter, " ");
-		if (post.post.login) {
+		if (post.post.login && post.post.login.length > 0) {
 			buffer.insertWithTagsByName(iter, post.post.login, ["login"]);
 		} else if (post.post.short_info.length > 0) {
 			buffer.insertWithTagsByName(iter, post.post.short_info, ["info"]);
