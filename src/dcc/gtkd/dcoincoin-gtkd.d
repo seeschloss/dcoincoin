@@ -11,7 +11,7 @@ private import std.process : environment;
 private import std.array : array;
 private import std.signals;
 
-private import core.memory;
+private import core.memory : GC;
 private import core.thread;
 
 private import gtk.Main;
@@ -593,6 +593,10 @@ class GtkUI : MainWindow {
 					"You pressed menu item "~action);
 				d.run();
 				d.destroy();
+
+				GC.collect();
+				stderr.writeln("Free: ", GC.stats.freeSize, " - used: ", GC.stats.usedSize);
+
 			break;
 		}
 
