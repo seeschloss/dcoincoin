@@ -64,7 +64,7 @@ class TribunePreviewer : TribuneViewer {
 		Signals.connectData(
 			this,
 			"draw",
-			cast(GCallback)&this.onDrawCallback,
+			null,
 			cast(void*)this,
 			null,
 			cast(ConnectFlags)0);
@@ -147,28 +147,7 @@ class TribunePreviewer : TribuneViewer {
 		}
 	}
 
-	bool onDraw() {
-		auto context = this.getWindow(GtkTextWindowType.WIDGET).createContext();
-		context.setLineWidth(8);
-
-		GdkRectangle visible;
-		this.getVisibleRect(visible);
-
-		context.setSourceRgb(0, 0, 0);
-		context.moveTo(visible.x, visible.y);
-		context.lineTo(visible.x, visible.y + visible.height);
-		context.lineTo(visible.x + visible.width, visible.y + visible.height);
-		context.lineTo(visible.x + visible.width, visible.y);
-		context.stroke();
-
-		delete context;
-	
-		return false;
-	}
-
-	extern(C) static bool onDrawCallback(GtkWidget* widgetStruct, cairo_t* cr, Widget _widget) {
-		return (cast(TribunePreviewer)_widget).onDraw();
-	}
+	override void registerTribune(GtkTribune gtkTribune) {}
 }
 
 class TribuneMainViewer : TribuneViewer {
@@ -186,8 +165,6 @@ class TribuneMainViewer : TribuneViewer {
 
 	mixin Signal!(GtkPost) postHighlight;
 	mixin Signal!() resetHighlight;
-
-	Context marginContext;
 
 	bool onDraw() {
 		// Draw coloured lines in the left margin to indicate post ownership
