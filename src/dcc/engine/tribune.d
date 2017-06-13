@@ -49,7 +49,7 @@ class Tribune {
 	string[] aliases;
 	string post_url;
 	string post_format;
-	string xml_url;
+	string backend_url;
 	string cookie;
 	string ua;
 	int refresh;
@@ -60,23 +60,24 @@ class Tribune {
 	Duration time_offset;
 	bool unreliable_date = false;
 	SysTime last_update;
+	string backend_type = "xml";
 
 	Post[string] posts;
 	mixin Signal!(Post) new_post;
 
 	string last_posted_id;
 
-	this(string xml_url, bool tags_encoded) {
-		this.xml_url = xml_url;
+	this(string backend_url, bool tags_encoded) {
+		this.backend_url = backend_url;
 		this.tags_encoded = tags_encoded;
 	}
 
-	this(string name, string[] aliases, string post_url, string post_format, string xml_url, string cookie, string ua, int refresh, bool tags_encoded, string color, string login) {
+	this(string name, string[] aliases, string post_url, string post_format, string backend_url, string cookie, string ua, int refresh, bool tags_encoded, string color, string login) {
 		this.name = name;
 		this.aliases = aliases;
 		this.post_url = post_url;
 		this.post_format = post_format;
-		this.xml_url = xml_url;
+		this.backend_url = backend_url;
 		this.cookie = cookie;
 		this.ua = ua;
 		this.refresh = refresh;
@@ -139,7 +140,44 @@ class Tribune {
 	}
 
 	Post[string] parse_backend(string source) {
-		check(source);
+		switch (this.backend_type) {
+			case "tsv":
+				return this.parse_backend_tsv(source);
+			case "xml":
+			default:
+				return this.parse_backend_xml(source);
+		}
+	}
+
+	Post[string] parse_backend_tsv(string source) {
+		Post[string] posts;
+
+		foreach (string line; source.splitter('\n')) {
+			auto fields = line.splitter('\t').array;
+
+			if (fields.length == 5) {
+				Post post = new Post();
+				post.tribune = this;
+
+				post.post_id   = fields[0];
+				post.timestamp = fields[1];
+				post.info      = fields[2];
+				post.login     = fields[3];
+				post.message   = fields[4];
+
+				if (post.post_id == this.last_posted_id) {
+					post.mine = true;
+				}
+
+				posts[post.post_id] = post;
+			}
+		}
+
+		return posts;
+	}
+
+	Post[string] parse_backend_xml(string source) {
+		//check(source);
 		// TODO: error handling
 
 		auto xml = new DocumentParser(source);
@@ -206,7 +244,13 @@ class Tribune {
 
 		ubyte[] backend;
 		try {
-			backend = get!(HTTP, ubyte)(this.xml_url, connection);
+			backend = get!(HTTP, ubyte)(this.backend_url, connection);
+
+			if ("content-type" in connection.responseHeaders) {
+				if (!connection.responseHeaders["content-type"].find("text/tab-separated-values").empty) {
+					this.backend_type = "tsv";
+				}
+			}
 
 			if (!this.unreliable_date && "date" in connection.responseHeaders) {
 				try {
@@ -231,7 +275,7 @@ class Tribune {
 	bool post(string message) {
 		auto connection = HTTP();
 		connection.addRequestHeader("User-Agent", std.array.replace(this.ua, "%v", VERSION));
-		connection.addRequestHeader("Referer", this.xml_url);
+		connection.addRequestHeader("Referer", this.backend_url);
 		connection.operationTimeout(2.seconds);
 
 		if (this.cookie.length) {
