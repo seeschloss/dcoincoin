@@ -174,11 +174,14 @@ class Tribune {
 
 			xml.parse();
 
-			post.analyze_clocks();
+			delete xml;
+
 			posts[post.post_id] = post;
 		};
 
 		xml.parse();
+
+		delete xml;
 
 		return posts;
 	}
@@ -271,7 +274,6 @@ class Post {
 
 	Tribune tribune;
 
-	Clock[] clocks;
 	bool _mine;
 
 	override string toString() {
@@ -298,7 +300,13 @@ class Post {
 		return false;
 	}
 
-	void analyze_clocks() {
+	Clock[] clocks() {
+		return this.analyze_clocks();
+	}
+
+	Clock[] analyze_clocks() {
+		Clock[] clocks;
+
 		if (auto match = this.message.matchAll(CLOCK_REGEX)) {
 			while (!match.empty) {
 				auto capture = match.front;
@@ -325,11 +333,13 @@ class Post {
 				if (capture["tribune"].length > 0) {
 					clock_tribune = capture["tribune"][1 .. $].dup;
 				}
-				this.clocks ~= Clock(capture["time"].dup, index, clock_tribune, capture.hit.dup, this);
+				clocks ~= Clock(capture["time"].dup, index, clock_tribune, capture.hit.dup, this);
 
 				match.popFront();
 			}
 		}
+
+		return clocks;
 	}
 
 	string timestamp() {
