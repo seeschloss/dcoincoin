@@ -302,10 +302,10 @@ class NCUI {
 			wnoutrefresh(this.posts_window);
 		}
 
-		scrollok(this.preview_window, true);
+		int scrollresult = scrollok(this.preview_window, true);
 
-		wclear(this.preview_window);
-		wresize(this.preview_window, post.lines, COLS);
+		int result1 = wclear(this.preview_window);
+		int result2 = wresize(this.preview_window, post.lines, COLS);
 		append_post(this.preview_window, post, false, 0);
 		wresize(this.preview_window, post.lines + 1, COLS);
 		mvwhline(this.preview_window, post.lines, 0, 0, COLS);
