@@ -129,6 +129,7 @@ class NCUI {
 
 			if (n_tribunes == 0) {
 				this.display_all_posts();
+				this.posts_to_display.length = 0;
 			}
 		}
 		
@@ -388,6 +389,7 @@ class NCUI {
 		this.set_status("");
 
 		while (true) {
+			wtimeout(this.input_window, 100);
 			wmove(this.input_window, 1, 0);
 
 			noecho();
@@ -433,7 +435,7 @@ class NCUI {
 					break;
 				case KEY_HOME:
 					foreach (Stop stop; this.stops) {
-						if (stop.offset > this.offset - this.posts_window.maxy) {
+						if (stop.offset >= this.offset - this.posts_window.maxy) {
 							if ((stop.offset < this.current_stop.offset) ||
 									(stop.offset == this.current_stop.offset && stop.start < this.current_stop.start)) {
 								set_stop(stop);
@@ -457,6 +459,7 @@ class NCUI {
 						this.set_status("");
 					}
 
+					wtimeout(this.input_window, -1);
 					int exit = 1;
 					curs_set(2);
 					string text = uput(this.input_window, 1, 0, COLS - 2, initial_text, "> ", exit);
@@ -469,6 +472,7 @@ class NCUI {
 					wrefresh(this.input_window);
 					break;
 				default:
+					this.display_queued_posts();
 					break;
 			}
 		}
@@ -487,7 +491,7 @@ class NCUI {
 		if (this.current_stop is Stop.init && this.stops.length) {
 			new_stop = this.stops[$ - 1];
 		} else foreach_reverse (Stop stop; this.stops) {
-			if (stop.offset > this.offset - this.posts_window.maxy) {
+			if (stop.offset >= this.offset - this.posts_window.maxy) {
 				if ((stop.offset < this.current_stop.offset) ||
 					(stop.offset == this.current_stop.offset && stop.start < this.current_stop.start)) {
 					new_stop = stop;
@@ -695,6 +699,19 @@ class NCUI {
 		return offset;
 	}
 
+	NCPost[] posts_to_display;
+	void enqueue_post(NCPost post) {
+		this.posts_to_display ~= post;
+	}
+
+	void display_queued_posts() {
+		foreach (NCPost post; this.posts_to_display) {
+			this.display_post(this.posts_window, post);
+		}
+
+		this.posts_to_display.length = 0;
+	}
+
 	void display_post(WINDOW* window, NCPost post, bool add_stops = true, bool scroll = true) {
 		if (this.display_enabled && !this.is_post_ignored(post)) {
 			synchronized(this) {
@@ -774,7 +791,7 @@ class NCTribune {
 			this.posts = this.posts[1 .. $];
 		}
 
-		this.ui.display_post(this.ui.posts_window, p);
+		this.ui.enqueue_post(p);
 	};
 
 	auto fetch_posts() {
