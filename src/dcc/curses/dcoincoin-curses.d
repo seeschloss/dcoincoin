@@ -95,7 +95,7 @@ class NCUI {
 	Stop[] stops;
 	int offset;
 
-	ulong[string] colors;
+	uint[string] colors;
 
 	bool display_enabled = false;
 
@@ -106,6 +106,7 @@ class NCUI {
 
 		this.init_ui();
 
+		auto n_tribunes = this.config.tribunes.length;
 		int n = 2;
 		// Create all tribunes, then fetch their posts without displaying
 		// them, and once all this is done then display the latest posts.
@@ -132,7 +133,6 @@ class NCUI {
 			}
 		}
 		
-		this.display_all_posts();
 		this.start_timers();
 	}
 
@@ -561,7 +561,7 @@ class NCUI {
 		x += 1;
 		mvwprintw(window, window.maxy, x, "%s", clock.toStringz());
 		int clock_len = cast(int)std.utf.count(clock);
-		ulong current_attributes;
+		uint current_attributes;
 		short pair;
 		int opts;
 		wattr_get(window, &current_attributes, &pair, cast(void*)&opts);
@@ -775,7 +775,7 @@ class NCTribune {
 		this._color = c;
 	}
 
-	ulong color(bool invert = false) {
+	uint color(bool invert = false) {
 		return COLOR_PAIR(invert ? this._color + 7 : this._color);
 	}
 
@@ -797,11 +797,7 @@ class NCTribune {
 	auto fetch_posts() {
 		this.updating = true;
 
-		try {
-			this.tribune.fetch_posts();
-			this.tribune.prune_old_posts(LINES);
-		} catch (Exception e) {
-		}
+		this.tribune.fetch_posts();
 
 		this.updating = false;
 	}

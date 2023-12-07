@@ -227,7 +227,7 @@ class TribuneMainViewer : TribuneViewer {
 			context.stroke();
 		}
 
-		delete context;
+		context.destroy();
 	
 		return false;
 	}

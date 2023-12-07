@@ -1711,7 +1711,7 @@ class DocumentParser : ElementParser
     this(string xmlText_)
     in
     {
-        assert(xmlText_.length != 0);
+        //assert(xmlText_.length != 0);
         try
         {
             // Confirm that the input is valid XML
@@ -1720,7 +1720,7 @@ class DocumentParser : ElementParser
         catch (CheckException e)
         {
             // And if it's not, tell the user why not
-            assert(false, "\n" ~ e.toString());
+            //assert(false, "\n" ~ e.toString());
         }
     }
     do

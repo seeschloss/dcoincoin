@@ -193,46 +193,49 @@ class Tribune {
 		//check(source);
 		// TODO: error handling
 
-		auto xml = new DocumentParser(source);
-
 		Post[string] posts;
 
-		xml.onStartTag["post"] = (ElementParser xml) {
-			Post post = new Post();
-			post.tribune = this;
-			post.post_id = xml.tag.attr["id"];
-			if (post.post_id == this.last_posted_id) {
-				post.mine = true;
-			}
-			post.timestamp = xml.tag.attr["time"];
-			xml.onEndTag["info"]    = (in Element e) {
-				post.info = replace(e.text().strip(), CONTROL_CHARS_REGEX, " ");
-				post.info = this.tags_cleanup(post.info);
-			};
-			xml.onEndTag["message"] = (in Element e) {
-				post.message = replace(e.text().strip(), CONTROL_CHARS_REGEX, " ");
+		try {
+			auto xml = new DocumentParser(source);
 
-				if (this.tags_encoded) {
-					post.message = this.tags_decode(post.message);
+			xml.onStartTag["post"] = (ElementParser xml) {
+				Post post = new Post();
+				post.tribune = this;
+				post.post_id = xml.tag.attr["id"];
+				if (post.post_id == this.last_posted_id) {
+					post.mine = true;
 				}
+				post.timestamp = xml.tag.attr["time"];
+				xml.onEndTag["info"]    = (in Element e) {
+					post.info = replace(e.text().strip(), CONTROL_CHARS_REGEX, " ");
+					post.info = this.tags_cleanup(post.info);
+				};
+				xml.onEndTag["message"] = (in Element e) {
+					post.message = replace(e.text().strip(), CONTROL_CHARS_REGEX, " ");
 
-				post.message = this.tags_cleanup(post.message);
-			};
-			xml.onEndTag["login"]   = (in Element e) {
-				post.login = replace(e.text().strip(), CONTROL_CHARS_REGEX, " ");
-				post.login = this.tags_cleanup(post.login);
+					if (this.tags_encoded) {
+						post.message = this.tags_decode(post.message);
+					}
+
+					post.message = this.tags_cleanup(post.message);
+				};
+				xml.onEndTag["login"]   = (in Element e) {
+					post.login = replace(e.text().strip(), CONTROL_CHARS_REGEX, " ");
+					post.login = this.tags_cleanup(post.login);
+				};
+
+				xml.parse();
+
+				xml.destroy();
+
+				posts[post.post_id] = post;
 			};
 
 			xml.parse();
 
 			xml.destroy();
-
-			posts[post.post_id] = post;
-		};
-
-		xml.parse();
-
-		xml.destroy();
+		} catch (Exception e) {
+		}
 
 		return posts;
 	}
