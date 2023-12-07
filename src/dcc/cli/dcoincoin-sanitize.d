@@ -18,7 +18,7 @@ void main(string[] args) {
 	} else if (args.length > 1) {
 		backend = args[1];
 	} else {
-		stderr.writeln("Usage: ", args[0], " [-t] <url>");
+		stderr.writeln("Usage: ", args[0], " [-t]");
 		return;
 	}
 

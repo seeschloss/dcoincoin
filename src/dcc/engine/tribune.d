@@ -2,8 +2,9 @@ module dcc.engine.tribune;
 
 private import dcc.common;
 
+private import undead.xml;
+
 private import std.net.curl;
-private import std.xml;
 private import std.signals;
 private import std.datetime;
 private import std.conv;
@@ -22,19 +23,19 @@ import core.time;
 
 static auto CLOCK_REGEX = std.regex.regex(
 	`(?P<time>`		// Time part: HH:MM[:SS]
-		~`(?:`
-			~`(?:[01]?[0-9])|(?:2[0-3])`	// Hour (00-23)
-		~`)`
-		~`:`
-		~`(?:[0-5][0-9])`					// Minute (00-59)
-		~`(?::(?:[0-5][0-9]))?`				// Optional seconds (00-59)
-	~`)`
-	~`(?P<index>`	// Optional index part: ¹²³, :n, or ^n
-		~`(?:(?:[:\^][0-9])|¹|²|³)?`
-	~`)`
-	~`(?P<tribune>`	// Optional tribune part: @tribunename
-		~`(?:@[A-Za-z]*)?`
-	~`)`
+~		`(?:`
+~			`(?:[01]?[0-9])|(?:2[0-3])`		// Hour (00-23)
+~		`)`
+~		`:`
+~		`(?:[0-5][0-9])`					// Minute (00-59)
+~		`(?::(?:[0-5][0-9]))?`				// Optional seconds (00-59)
+~	`)`
+~	`(?P<index>`	// Optional index part: ¹²³, :n, or ^n
+~		`(?:(?:[:\^][0-9])|¹|²|³)?`
+~	`)`
+~	`(?P<tribune>`	// Optional tribune part: @tribunename
+~		`(?:@[A-Za-z]*)?`
+~	`)`
 );
 
 version (GNU) {
@@ -98,6 +99,18 @@ class Tribune {
 		}
 
 		return false;
+	}
+
+	void prune_old_posts(int keep) {
+		if (this.posts.length <= keep) {
+			return;
+		}
+
+		auto remove = this.posts.length - keep;
+
+		foreach (id; this.posts.keys.sort!((a, b) => a > b)[0 .. min(remove, $)]) {
+			//this.posts.remove(id);
+		}
 	}
 
 	bool fetch_posts() {
@@ -212,20 +225,20 @@ class Tribune {
 
 			xml.parse();
 
-			delete xml;
+			xml.destroy();
 
 			posts[post.post_id] = post;
 		};
 
 		xml.parse();
 
-		delete xml;
+		xml.destroy();
 
 		return posts;
 	}
 
 	string tags_decode(string source) {
-		source = std.xml.decode(source);
+		source = undead.xml.decode(source);
 		return source;
 	}
 

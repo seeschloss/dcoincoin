@@ -15,7 +15,7 @@
 			"mainSourceFile": "src/dcc/curses/dcoincoin-curses.d",
 			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/cli/*"],
 			"libs": ["panel", "curl"],
-			"dependencies": {"ncurses": "*"}
+			"dependencies": {"ncurses": {"repository": "git+https://github.com/D-Programming-Deimos/ncurses", "version": "c205a9996c2ff7885b50bcbc6d2f0c7e428f289d"}}
 		},
 		{
 			"name": "cli",
@@ -24,7 +24,25 @@
 			"targetType": "executable",
 			"mainSourceFile": "src/dcc/cli/dcoincoin-cli.d",
 			"libs": ["curl"],
-			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/curses/*"]
+			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/curses/*", "src/dcc/cli/*post.d", "src/dcc/cli/*sanitize.d"]
+		},
+		{
+			"name": "sanitize",
+			"targetName": "dcoincoin-sanitize",
+			"targetPath": "bin",
+			"targetType": "executable",
+			"mainSourceFile": "src/dcc/cli/dcoincoin-sanitize.d",
+			"libs": ["curl"],
+			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/curses/*", "src/dcc/cli/*cli.d", "src/dcc/cli/*post.d"]
+		},
+		{
+			"name": "post",
+			"targetName": "dcoincoin-post",
+			"targetPath": "bin",
+			"targetType": "executable",
+			"mainSourceFile": "src/dcc/cli/dcoincoin-post.d",
+			"libs": ["curl"],
+			"excludedSourceFiles": ["src/dcc/gtkd/*", "src/dcc/curses/*", "src/dcc/cli/*cli.d", "src/dcc/cli/*sanitize.d"]
 		},
 		{
 			"name": "gtkd",

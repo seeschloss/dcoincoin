@@ -106,7 +106,6 @@ class NCUI {
 
 		this.init_ui();
 
-		auto n_tribunes = this.config.tribunes.length;
 		int n = 2;
 		// Create all tribunes, then fetch their posts without displaying
 		// them, and once all this is done then display the latest posts.
@@ -122,7 +121,7 @@ class NCUI {
 
 		this.tribunes_ordered = this.tribunes.values;
 
-		foreach (ref tribune; parallel(this.tribunes.values)) {
+		foreach (ref tribune; this.tribunes.values) {
 			tribune.tribune.fetch_posts();
 
 			n_tribunes--;
@@ -133,6 +132,7 @@ class NCUI {
 			}
 		}
 		
+		this.display_all_posts();
 		this.start_timers();
 	}
 
@@ -797,7 +797,11 @@ class NCTribune {
 	auto fetch_posts() {
 		this.updating = true;
 
-		this.tribune.fetch_posts();
+		try {
+			this.tribune.fetch_posts();
+			this.tribune.prune_old_posts(LINES);
+		} catch (Exception e) {
+		}
 
 		this.updating = false;
 	}
