@@ -5,6 +5,7 @@ private import std.string;
 private import std.stdio;
 private import std.regex : replaceAll, regex;
 private import std.array : replace;
+private import std.algorithm;
 
 private import gtk.TextMark;
 
@@ -51,6 +52,17 @@ class GtkPost {
 		this.tribune = tribune;
 		this.post = post;
 	}
+
+	/+
+	~this() {
+		this.tribune.posts = this.tribune.posts.remove!(a => a is this);
+
+		foreach (GtkPostSegment segment; this.segments) {
+//			delete segment;
+		}
+
+//		delete this.post;
+	}+/
 
 	string id() {
 		return this.post.post_id ~ "@" ~ this.tribune.tribune.name;

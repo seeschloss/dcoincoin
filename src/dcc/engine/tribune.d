@@ -336,6 +336,10 @@ class Post {
 
 	bool _mine;
 
+	~this() {
+		this.tribune.posts.remove(this.post_id);
+	}
+
 	override string toString() {
 		return this.clock ~ " " ~ this.login ~ "> " ~ this.message;
 	}

@@ -673,6 +673,32 @@ class TribuneViewer : TextView {
 		if (!this.end) {
 			this.end = this.postEnds[post];
 		}
+
+		if (this.posts.length > 100) {
+//			this.removeOldestPosts(1);
+		}
+	}
+
+	void removeOldestPosts(int n) {
+		auto posts = this.posts.values.sort!((a, b) => a.post.real_time < b.post.real_time);
+		for (int i = 0 ; i < n ; i++) {
+			this.removePost(posts[i]);
+		}
+	}
+
+	void removePost(GtkPost post) {
+		this.postBegins.remove(post);
+		this.postEnds.remove(post);
+		this.postSegmentsOffsets.remove(post);
+		this.posts.remove(post.id);
+		this.timestamps.remove(post.post.real_time);
+
+		foreach (GtkPostSegment segment; post.segments) {
+			this.segmentBegins.remove(segment);
+			this.segmentEnds.remove(segment);
+		}
+
+		post.destroy();
 	}
 }
 

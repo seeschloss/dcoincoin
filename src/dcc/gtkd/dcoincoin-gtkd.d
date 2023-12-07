@@ -209,6 +209,16 @@ class GtkUI : MainWindow {
 			this.reloadRemaining[tribune] = 0;
 		}
 
+		/*
+		debug {
+			this.addOnDestroy((Widget widget) {
+				writeln("Writing trace");
+				stopTrackingAllocs();
+				trace_term();
+			});
+		}
+		*/
+
 		this.setCurrentTribune(this.tribunes.values[$-1]);
 		this.reloadRemaining[this.tribunes.values[$-1]] = 0;
 
